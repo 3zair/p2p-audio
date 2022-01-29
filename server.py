@@ -36,11 +36,11 @@ class ChatServer:
 
     def broadcast(self, sock, data):
         for addr, info in self.clientInfos.items():
-            logging.info("broadcast cur addr:{}".format(addr))
             if info["conn"] != self.tcp_server and info["conn"] != sock:
                 try:
                     header = [conf.MSG_EXCHANGE, data.__len__()]
                     info["conn"].send(struct.pack("!II", *header) + data.encode())
+
                     logging.info("broadcast to:{}".format(addr))
                 except socket.error as err:
                     logging.error("broadcast err:{}, to {}, data:{}".format(err, addr, data))
@@ -70,7 +70,6 @@ class ChatServer:
                 data_buffer = data_buffer[conf.HEADER_SIZE + body_size:]
 
     def msgHandle(self, c, addr, data):
-        print(data)
         msg = json.loads(data)
         logging.info(msg)
         if msg["type"] == conf.CLIENT_ADD:
@@ -82,7 +81,7 @@ class ChatServer:
             self.broadcast(c, json.dumps(
                 {"name": msg["name"], "ip": msg["ip"], "udp_port": msg["udp_port"], "t": self.clientInfos[addr]["t"],
                  "type": conf.CLIENT_ADD}))
-        elif msg["type"] == conf.CLIENT_ADD:
+        elif msg["type"] == conf.CLIENT_DEL:
             self.broadcast(c, json.dumps(
                 {"name": msg["name"], "ip": msg["ip"], "udp_port": msg["udp_port"], "t": time.time(),
                  "type": conf.CLIENT_DEL}))
@@ -94,8 +93,7 @@ class ChatServer:
     def updateClientInfo(self):
         while True:
             for addr, info in self.clientInfos.items():
-                print("{} {} {}".format(time.time(), self.clientInfos[addr]["ut"],
-                                        time.time() - self.clientInfos[addr]["ut"]))
+
                 if time.time() - self.clientInfos[addr]["ut"] > 2:
                     self.broadcast(info[addr]["conn"], json.dumps(
                         {"name": info[addr]["name"], "ip": info[addr]["ip"], "udp_port": info[addr]["udp_port"],
@@ -115,7 +113,8 @@ class ChatServer:
                 try:
                     header = [conf.MSG_EXCHANGE, json_data.__len__()]
                     info["conn"].send(struct.pack("!II", *header) + json_data.encode())
-                    logging.info("update to:{}".format(addr))
+
+                    # logging.info("update to:{} {}".format(addr, json_data))
                 except socket.error as err:
                     logging.error("broadcast err:{}, to {}, data:{}".format(err, addr, json_data))
             time.sleep(2)

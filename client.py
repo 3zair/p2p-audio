@@ -5,7 +5,6 @@ import logging
 import conf
 import json
 import struct
-import random
 import time
 
 
@@ -14,6 +13,10 @@ class ClientInfo:
         self.name = name
         self.ip = ip
         self.port = port
+
+
+def getClientInfoKey(ip, port):
+    return "{}:{}".format(ip, port)
 
 
 class ChatClient:
@@ -47,17 +50,14 @@ class ChatClient:
 
     def receive(self):
         data_buffer = bytes()
-
         while True:
             data = self.tcp_client.recv(1024)
-
             if data:
+                data_buffer += data
                 if len(data_buffer) < conf.HEADER_SIZE:
                     continue
 
-                head_pack = struct.unpack('!If', data[:conf.HEADER_SIZE])
-
-                data_buffer += data
+                head_pack = struct.unpack('!II', data[:conf.HEADER_SIZE])
                 body_size = head_pack[1]
                 if len(data_buffer) < conf.HEADER_SIZE + body_size:
                     continue
@@ -76,15 +76,22 @@ class ChatClient:
             return
 
         if msg["type"] == conf.CLIENT_ADD:
-            self.clientInfos[msg["ip"] + msg["udp_port"]] = ClientInfo(msg["name"], msg["ip"], msg["udp_port"])
+            self.clientInfos[getClientInfoKey(msg["ip"], msg["udp_port"])] = ClientInfo(msg["name"], msg["ip"],
+                                                                                        msg["udp_port"])
             self.clientInfoUT = msg["t"]
             logging.info("add clients,{}".format(msg["name"]))
+
         elif msg["type"] == conf.CLIENT_DEL:
-            del self.clientInfos[msg["ip"] + msg["udp_port"]]
+            del self.clientInfos[getClientInfoKey(msg["ip"], msg["udp_port"])]
             self.clientInfoUT = msg["t"]
             logging.info("del clients".format(msg["name"]))
+
         elif msg["type"] == conf.CLIENT_UPDATE_ALL:
-            logging.info(msg)
+            for info in msg["info"]:
+                self.clientInfos[getClientInfoKey(info["ip"], info["udp_port"])] = ClientInfo(info["name"], info["ip"],
+                                                                                              info["udp_port"])
+                logging.info(info)
+            self.clientInfoUT = msg["t"]
         else:
             logging.error("invalid msg type. msg:{}".format(msg))
 

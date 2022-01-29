@@ -34,13 +34,12 @@ class ChatServer:
             logging.info("new client: {}".format(addr))
             threading.Thread(target=self.receive, args=(c, addr,)).start()
 
-    def broadcast(self, sock, data):
-        for addr, info in self.clientInfos.items():
+    def broadcast(self, sock, addrs, data):
+        for addr in addrs:
+            info = self.clientInfos[addr]
             if info["conn"] != self.tcp_server and info["conn"] != sock:
                 try:
-                    header = [conf.MSG_EXCHANGE, data.__len__()]
-                    info["conn"].send(struct.pack("!II", *header) + data.encode())
-
+                    info["conn"].sendall(data)
                     logging.info("broadcast to:{}".format(addr))
                 except socket.error as err:
                     logging.error("broadcast err:{}, to {}, data:{}".format(err, addr, data))
@@ -64,9 +63,19 @@ class ChatServer:
                     if len(data_buffer) < conf.HEADER_SIZE + body_size:
                         continue
                     json_body_data = data_buffer[conf.HEADER_SIZE:conf.HEADER_SIZE + body_size]
-
                     self.msgHandle(c, addr, json_body_data)
+                elif head_pack[0] == conf.MSG_Voice:
+                    json_body_data = data_buffer[conf.HEADER_SIZE + conf.AUDIO_BYTE_SIZE:conf.HEADER_SIZE + body_size]
+                    msg = json.loads(json_body_data)
+                    addrs = [msg["to"]]
+                    # todo 发送给中间监听客户端
 
+                    # 发送给目标客户端
+                    body = json.dumps({"from": msg["from"]})
+                    header = [conf.MSG_EXCHANGE, body.__len__()]
+                    self.broadcast(c, addrs, struct.pack("!II", *header) + body.encode() + data_buffer[
+                                                                                           conf.HEADER_SIZE:conf.HEADER_SIZE + conf.AUDIO_BYTE_SIZE])
+                    pass
                 data_buffer = data_buffer[conf.HEADER_SIZE + body_size:]
 
     def msgHandle(self, c, addr, data):
@@ -75,16 +84,19 @@ class ChatServer:
         if msg["type"] == conf.CLIENT_ADD:
             self.clientInfos[addr]["name"] = msg["name"]
             self.clientInfos[addr]["ip"] = msg["ip"]
-            self.clientInfos[addr]["udp_port"] = msg["udp_port"]
             self.clientInfos[addr]["t"] = time.time()
-
-            self.broadcast(c, json.dumps(
-                {"name": msg["name"], "ip": msg["ip"], "udp_port": msg["udp_port"], "t": self.clientInfos[addr]["t"],
-                 "type": conf.CLIENT_ADD}))
+            body = json.dumps(
+                {"name": msg["name"], "ip": msg["ip"], "t": self.clientInfos[addr]["t"],
+                 "type": conf.CLIENT_ADD})
+            header = [conf.MSG_EXCHANGE, body.__len__()]
+            self.broadcast(c, self.clientInfos.keys(), struct.pack("!II", *header) + body.encode())
         elif msg["type"] == conf.CLIENT_DEL:
-            self.broadcast(c, json.dumps(
-                {"name": msg["name"], "ip": msg["ip"], "udp_port": msg["udp_port"], "t": time.time(),
-                 "type": conf.CLIENT_DEL}))
+
+            body = json.dumps(
+                {"name": msg["name"], "ip": msg["ip"], "t": time.time(),
+                 "type": conf.CLIENT_DEL})
+            header = [conf.MSG_EXCHANGE, body.__len__()]
+            self.broadcast(c, self.clientInfos.keys(), struct.pack("!II", *header) + body.encode())
             del self.clientInfos[addr]
         else:
             logging.error("invalid msg type. msg:{}".format(msg))
@@ -93,26 +105,27 @@ class ChatServer:
     def updateClientInfo(self):
         while True:
             for addr, info in self.clientInfos.items():
-
                 if time.time() - self.clientInfos[addr]["ut"] > 2:
-                    self.broadcast(info[addr]["conn"], json.dumps(
-                        {"name": info[addr]["name"], "ip": info[addr]["ip"], "udp_port": info[addr]["udp_port"],
-                         "t": time.time(), "type": conf.CLIENT_DEL}))
+                    body = json.dumps(
+                        {"name": info[addr]["name"], "ip": info[addr]["ip"], "t": time.time(),
+                         "type": conf.CLIENT_DEL})
+                    header = [conf.MSG_EXCHANGE, body.__len__()]
+                    self.broadcast(info[addr]["conn"], self.clientInfos.keys(),
+                                   struct.pack("!II", *header) + body.encode())
                     del self.clientInfos[addr]
                     continue
 
                 infos = []
                 for key in self.clientInfos.keys():
                     if key != addr:
-                        infos.append({"name": self.clientInfos[key]["name"], "ip": self.clientInfos[key]["ip"],
-                                      "udp_port": self.clientInfos[key]["udp_port"]})
+                        infos.append({"name": self.clientInfos[key]["name"], "ip": self.clientInfos[key]["ip"]})
                 if len(infos) == 0:
                     continue
                 json_data = json.dumps({"type": conf.CLIENT_UPDATE_ALL, "info": infos, "t": time.time()})
 
                 try:
                     header = [conf.MSG_EXCHANGE, json_data.__len__()]
-                    info["conn"].send(struct.pack("!II", *header) + json_data.encode())
+                    info["conn"].sendall(struct.pack("!II", *header) + json_data.encode())
 
                     # logging.info("update to:{} {}".format(addr, json_data))
                 except socket.error as err:

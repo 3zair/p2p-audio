@@ -1,0 +1,6 @@
+client:
+  ip: ""
+  port: 9000
+
+#redis:
+#  addr:

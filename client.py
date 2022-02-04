@@ -1,141 +1,141 @@
 import socket
 import threading
-import pyaudio
-import logging
-import conf
-import json
-import struct
+import random
 import time
-import multiprocessing
+import my_udp
+import logging
+import json
+
+SERVER_IP = "192.168.123.78"
+
+PORTS = [9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007]
+#
+# local_port = 8001
+# listening_clients = [("192.168.123.78", 8002)]  # set
+# listening_channels = [1, 2]  # set
 
 
-class ClientInfo:
-    def __init__(self, name, ip):
-        self.name = name
-        self.ip = ip
+#
+#
+# local_port = 8002
+# listening_clients = [("192.168.123.78", 8001)]  # set
+# listening_channels = [6, 7]  # set
+#
+
+local_port = 8003
+listening_clients = [("192.168.123.78", 8001), ("192.168.123.78", 8002)] # set
+listening_channels = [8]  # set
 
 
-def getClientInfoKey(ip, port):
-    return "{}:{}".format(ip, port)
+# 开始听某个客户端的消息
+def addListening_client(name):
+    global listening_clients
+    listening_clients.append(name)
+    return
+
+
+def delListening_client(name):
+    global listening_clients
+    listening_clients.remove(name)
+    return
+
+
+# 开始监听某个channel
+def addListening_channel(id):
+    global listening_channels
+    listening_channels.append(id)
+    return
+
+
+def delListening_channel(id):
+    global listening_channels
+    listening_channels.remove(id)
+    return
+
+
+def getServerPort():
+    i = random.randint(0, len(PORTS) - 1)
+    return PORTS[i]
+
+
+def getServerIP():
+    return SERVER_IP
+
+
+# 获取客户端信息
+def getClients():
+    # 从mongo获取
+    return {
+        ("192.168.123.78", 8001): {
+            "name": "张1",
+            "ip": "192.168.123.1"
+        },
+        ("192.168.123.78", 8002): {
+            "name": "张2",
+            "ip": "192.168.123.1"
+        },
+        ("192.168.123.78", 8003): {
+            "name": "张3",
+            "ip": "192.168.123.1"
+        }
+    }
 
 
 class ChatClient:
-    ip = socket.gethostbyname(socket.gethostname())
-    user = "user"
-    clientInfos = dict()
-    clientInfoUT = time.time()
-    voice_process = None
+    def __init__(self):
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.s.bind(("192.168.123.78", local_port))
 
-    def __init__(self, name, server_ip, server_port):
-        self.user = name if name == "" else "user" + self.ip
-        self.tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # chunk_size = 1024  # 512
+        # audio_format = pyaudio.paInt16
+        # channels = 1
+        # rate = 20000
 
-        # connect
-        try:
-            self.tcp_client.connect((server_ip, server_port))
-            logging.info("connect to {}:{}".format(server_ip, server_port))
-        except socket.error as msg:
-            logging.info("connect to server error:{}".format(msg))
-            return
+        # self.p = pyaudio.PyAudio()
+        # # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
+        # self.playing_stream = self.p.open(format=audio_format, channels=channels, rate=rate, output=True,
+        #                                   frames_per_buffer=chunk_size)
+        # self.recording_stream = self.p.open(format=audio_format, channels=channels, rate=rate, input=True,
+        #                                     frames_per_buffer=chunk_size)
 
-        # 定义语音消息参数
+        # start threads
+        threading.Thread(target=self.receive_server_data).start()
+        self.send_data_to_server()
 
-        self.p = pyaudio.PyAudio()
-        # 打开数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
-        self.playing_stream = self.p.open(format=conf.audio_format, channels=conf.channels, rate=conf.rate, output=True,
-                                          frames_per_buffer=conf.chunk_size)
-
-        threading.Thread(target=self.receive).start()
-
-        # 上报客户端信息
-        body = json.dumps(
-            {"name": self.user, "type": conf.CLIENT_ADD, "ip": self.ip, "t": time.time()})
-        header = [conf.MSG_EXCHANGE, body.__len__()]
-        self.tcp_client.sendall(struct.pack("!II", *header) + body.encode())
-
-        threading.Thread(target=self.health).start()
-
-    def receive(self):
-        data_buffer = bytes()
+    def receive_server_data(self):
+        clients = getClients()
         while True:
-            data = self.tcp_client.recv(1024)
-            if data:
-                data_buffer += data
-                if len(data_buffer) < conf.HEADER_SIZE:
-                    continue
+            # try:
+            data, _server = self.s.recvfrom(1500)
+            msg = my_udp.udpMsg(voiceDataLen=len("adas"), msg=data)
+            msg_body = json.loads(msg.getBody())
+            logging.info("receive form {},name: {}, channel:{}".format(msg_body["from"], msg_body["from"],
+                                                                       msg_body["channel"]))
+            # TODO 获取当前监听的的客户端,直接播放
+            if msg_body["from"] in listening_clients:
+                logging.info("【监听客户端】播放，name: {}".format(msg_body["from"]))
+            #    self.playing_stream.write(data)
+            # TODO 是当前监听的信道，直接播放
+            if msg_body["channel"] in listening_channels:
+                logging.info("【监听信道】 播放，name: {}, channel:{}".format(msg_body["from"], msg_body["channel"]))
+            #    self.playing_stream.write(data)
 
-                head_pack = struct.unpack('!II', data[:conf.HEADER_SIZE])
-                body_size = head_pack[1]
+            # TODO 变色, 显示说话状态
 
-                # # 播放语音消息
+            #
+        # except Exception as e:
+        #     print("err {}".format(e))
 
-                if len(data_buffer) < conf.HEADER_SIZE + body_size:
-                    continue
-
-                if head_pack[0] == conf.MSG_Voice:
-                    # 语音消息
-                    self.playing_stream.write(data[conf.HEADER_SIZE:conf.HEADER_SIZE + body_size])
-                elif head_pack[0] == conf.MSG_EXCHANGE:
-                    # 客户端信息更新
-                    json_body_data = data_buffer[conf.HEADER_SIZE:conf.HEADER_SIZE + body_size]
-                    self.msgExchangeHandle(json_body_data)
-                else:
-                    logging.error("invalid msg type:{}".format(head_pack[0]))
-
-                data_buffer = data_buffer[conf.HEADER_SIZE + body_size:]
-
-    def msgExchangeHandle(self, data):
-        msg = json.loads(data)
-        # 如果是过期消息就丢弃
-        if msg["t"] < self.clientInfoUT:
-            logging.warning("expired msg:{}".format(msg))
-            return
-
-        if msg["type"] == conf.CLIENT_ADD:
-            self.clientInfos[msg["name"]] = ClientInfo(msg["name"], msg["ip"])
-            self.clientInfoUT = msg["t"]
-            logging.info("add clients,{}".format(msg["name"]))
-
-        elif msg["type"] == conf.CLIENT_DEL:
-            del self.clientInfos[msg["name"]]
-            self.clientInfoUT = msg["t"]
-            logging.info("del clients".format(msg["name"]))
-
-        elif msg["type"] == conf.CLIENT_UPDATE_ALL:
-            for info in msg["info"]:
-                self.clientInfos[info["name"]] = ClientInfo(info["name"], info["ip"])
-                logging.info(info)
-            self.clientInfoUT = msg["t"]
-        else:
-            logging.error("invalid msg type. msg:{}".format(msg))
-
-    def send_data_to_server(self, des):
-        recording_stream = self.p.open(format=conf.audio_format, channels=conf.channels, rate=conf.rate,
-                                       input=True, frames_per_buffer=conf.chunk_size)
+    def send_data_to_server(self):
         while True:
             try:
-                data = recording_stream.read(conf.AUDIO_BYTE_SIZE, exception_on_overflow=False)
-                msg = json.dumps({"from": self.user, "to": des})
-                header = [conf.MSG_Voice, conf.AUDIO_BYTE_SIZE + msg.__len__()]
-                self.tcp_client.sendall(struct.pack("!II", *header) + data + msg.encode())
-            except:
-                pass
-
-    def health(self):
-        while True:
-            header = [conf.MSG_HEALTHY, 1]
-            self.tcp_client.sendall(struct.pack("!II", *header) + "a".encode())
-            time.sleep(1)
-
-    def sendVoiceMsg(self, name):
-        # 启动语音消息发送多线程
-        self.voice_process = multiprocessing.Process(target=self.send_data_to_server, args=(name,))
-        self.voice_process.start()
-
-    def stopSendVoiceMsg(self):
-        self.voice_process.terminate()
+                # data = self.recording_stream.read(1024, exception_on_overflow=False)
+                self.s.sendto("adas".encode(), (getServerIP(), getServerPort()))
+            except Exception as e:
+                logging.error("send_data_to_server err: {}".format(e))
+            time.sleep(5)
 
 
-# todo 1. 检测服务端断开连接, 2. 整体更新
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-client = ChatClient("user2", "192.168.123.78", 9001)
+
+client = ChatClient()

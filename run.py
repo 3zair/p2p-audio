@@ -7,6 +7,7 @@ if __name__ == '__main__':
 
     base_port = 9000
     # init channels
-    ids = [1, 2, 3, 4, 5, 6, 7, 8]
+    # ids = [1, 2, 3, 4, 5, 6, 7, 8]
+    ids = [1]
     for i in range(len(ids)):
         MyThread(ids[i], socket.gethostbyname(socket.gethostname()), base_port + i).start()

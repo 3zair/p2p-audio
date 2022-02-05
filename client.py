@@ -5,22 +5,23 @@ import time
 import my_udp
 import logging
 import json
+import pyaudio
 
 SERVER_IP = socket.gethostbyname(socket.gethostname())
 TEST_CLIENT_IP = socket.gethostbyname(socket.gethostname())
 
 PORTS = [9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007]
 #
-# local_port = 8001
-# listening_clients = [(TEST_CLIENT_IP, 8002)]  # set
-# listening_channels = [1, 2]  # set
+local_port = 8001
+listening_clients = [['192.168.110.123', 8002]]  # set
+listening_channels = [1, 2]  # set
 
 
 #
 
-local_port = 8002
-listening_clients = [(TEST_CLIENT_IP, 8001)]  # set
-listening_channels = [6, 7]  # set
+# local_port = 8002
+# listening_clients = [(TEST_CLIENT_IP, 8001)]  # set
+# listening_channels = [6, 7]  # set
 
 #
 # local_port = 8003
@@ -56,7 +57,7 @@ def delListening_channel(id):
 
 def getServerPort():
     i = random.randint(0, len(PORTS) - 1)
-    return PORTS[i]
+    return 9000
 
 
 def getServerIP():
@@ -67,17 +68,13 @@ def getServerIP():
 def getClients():
     # 从mongo获取
     return {
-        (TEST_CLIENT_IP, 8001): {
+        ("192.168.110.189", 8001): {
             "name": "张1",
-            "ip": TEST_CLIENT_IP
+            "ip": "192.168.110.189"
         },
-        (TEST_CLIENT_IP, 8002): {
+        ("192.168.110.123", 8002): {
             "name": "张2",
-            "ip": "192.168.123.1"
-        },
-        (TEST_CLIENT_IP, 8003): {
-            "name": "张3",
-            "ip": "192.168.123.1"
+            "ip": "192.168.110.123"
         }
     }
 
@@ -87,17 +84,17 @@ class ChatClient:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.s.bind((TEST_CLIENT_IP, local_port))
 
-        # chunk_size = 1024  # 512
-        # audio_format = pyaudio.paInt16
-        # channels = 1
-        # rate = 20000
+        chunk_size = 1024  # 512
+        audio_format = pyaudio.paInt16
+        channels = 1
+        rate = 20000
 
-        # self.p = pyaudio.PyAudio()
-        # # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
-        # self.playing_stream = self.p.open(format=audio_format, channels=channels, rate=rate, output=True,
-        #                                   frames_per_buffer=chunk_size)
-        # self.recording_stream = self.p.open(format=audio_format, channels=channels, rate=rate, input=True,
-        #                                     frames_per_buffer=chunk_size)
+        self.p = pyaudio.PyAudio()
+        # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
+        self.playing_stream = self.p.open(format=audio_format, channels=channels, rate=rate, output=True,
+                                          frames_per_buffer=chunk_size)
+        self.recording_stream = self.p.open(format=audio_format, channels=channels, rate=rate, input=True,
+                                            frames_per_buffer=chunk_size)
 
         # start threads
         threading.Thread(target=self.receive_server_data).start()
@@ -107,19 +104,25 @@ class ChatClient:
         clients = getClients()
         while True:
             # try:
-            data, _server = self.s.recvfrom(1500)
-            msg = my_udp.udpMsg(voiceDataLen=len("adas"), msg=data)
+            print("111")
+            data, _server = self.s.recvfrom(1100)
+            print("113")
+            # msg = my_udp.udpMsg(voiceDataLen=len("adas"), msg=data)
+            msg = my_udp.udpMsg(voiceDataLen=1024, msg=data)
             msg_body = json.loads(msg.getBody())
             logging.info("receive form {},name: {}, channel:{}".format(msg_body["from"], msg_body["from"],
                                                                        msg_body["channel"]))
+            msg_voice = msg.getVoiceData()
             # TODO 获取当前监听的的客户端,直接播放
             if msg_body["from"] in listening_clients:
+                print("122")
                 logging.info("【监听客户端】播放，name: {}".format(msg_body["from"]))
-            #    self.playing_stream.write(data)
+                self.playing_stream.write(msg_voice)
+                print("play voice")
             # TODO 是当前监听的信道，直接播放
-            if msg_body["channel"] in listening_channels:
-                logging.info("【监听信道】 播放，name: {}, channel:{}".format(msg_body["from"], msg_body["channel"]))
-            #    self.playing_stream.write(data)
+            # if msg_body["channel"] in listening_channels:
+            #     logging.info("【监听信道】 播放，name: {}, channel:{}".format(msg_body["from"], msg_body["channel"]))
+            #     self.playing_stream.write(msg_voice)
 
             # TODO 变色, 显示说话状态
 
@@ -130,8 +133,11 @@ class ChatClient:
     def send_data_to_server(self):
         while True:
             try:
-                # data = self.recording_stream.read(1024, exception_on_overflow=False)
-                self.s.sendto("adas".encode(), (getServerIP(), getServerPort()))
+                data = self.recording_stream.read(1024, exception_on_overflow=False)
+                print("141")
+                self.s.sendto(data, (getServerIP(), getServerPort()))
+                print("143")
+                # self.s.sendto("adas".encode(), (getServerIP(), getServerPort()))
             except Exception as e:
                 logging.error("send_data_to_server err: {}".format(e))
             time.sleep(5)

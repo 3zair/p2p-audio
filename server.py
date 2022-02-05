@@ -6,7 +6,7 @@ TEST_CLIENT_IP = socket.gethostbyname(socket.gethostname())
 
 
 def getClients():
-    return [(TEST_CLIENT_IP, 8001), (TEST_CLIENT_IP, 8002), (TEST_CLIENT_IP, 8003)]
+    return [("192.168.110.189", 8001), ("192.168.110.123", 8002)]
 
 
 class ChatServer:
@@ -21,12 +21,14 @@ class ChatServer:
         clients = getClients()
         while True:
             # 接收来自客户端的数据,使用recvfrom
-            data, addr = s.recvfrom(1500)
+            data, addr = s.recvfrom(1024)
             print('Received from {}'.format(addr))
             for c in clients:
                 # broadcast
                 if c == addr:
                     continue
-                msg = my_udp.udpMsg(body=json.dumps({"from": addr, "channel": id}), voiceDataLen=len("adas"),
+                # msg = my_udp.udpMsg(body=json.dumps({"from": addr, "channel": id}), voiceDataLen=len("adas"),
+                #                     voiceData=data)
+                msg = my_udp.udpMsg(body=json.dumps({"from": addr, "channel": id}), voiceDataLen=1024,
                                     voiceData=data)
                 s.sendto(msg.getMsg(), c)

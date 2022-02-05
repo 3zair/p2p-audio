@@ -6,25 +6,26 @@ import my_udp
 import logging
 import json
 
-SERVER_IP = "192.168.123.78"
+SERVER_IP = socket.gethostbyname(socket.gethostname())
+TEST_CLIENT_IP = socket.gethostbyname(socket.gethostname())
 
 PORTS = [9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007]
 #
 # local_port = 8001
-# listening_clients = [("192.168.123.78", 8002)]  # set
+# listening_clients = [(TEST_CLIENT_IP, 8002)]  # set
 # listening_channels = [1, 2]  # set
 
 
 #
-#
-# local_port = 8002
-# listening_clients = [("192.168.123.78", 8001)]  # set
-# listening_channels = [6, 7]  # set
-#
 
-local_port = 8003
-listening_clients = [("192.168.123.78", 8001), ("192.168.123.78", 8002)] # set
-listening_channels = [8]  # set
+local_port = 8002
+listening_clients = [(TEST_CLIENT_IP, 8001)]  # set
+listening_channels = [6, 7]  # set
+
+#
+# local_port = 8003
+# listening_clients = [(TEST_CLIENT_IP, 8001), (TEST_CLIENT_IP, 8002)] # set
+# listening_channels = [8]  # set
 
 
 # 开始听某个客户端的消息
@@ -66,15 +67,15 @@ def getServerIP():
 def getClients():
     # 从mongo获取
     return {
-        ("192.168.123.78", 8001): {
+        (TEST_CLIENT_IP, 8001): {
             "name": "张1",
-            "ip": "192.168.123.1"
+            "ip": TEST_CLIENT_IP
         },
-        ("192.168.123.78", 8002): {
+        (TEST_CLIENT_IP, 8002): {
             "name": "张2",
             "ip": "192.168.123.1"
         },
-        ("192.168.123.78", 8003): {
+        (TEST_CLIENT_IP, 8003): {
             "name": "张3",
             "ip": "192.168.123.1"
         }
@@ -84,7 +85,7 @@ def getClients():
 class ChatClient:
     def __init__(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.s.bind(("192.168.123.78", local_port))
+        self.s.bind((TEST_CLIENT_IP, local_port))
 
         # chunk_size = 1024  # 512
         # audio_format = pyaudio.paInt16

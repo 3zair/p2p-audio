@@ -2,9 +2,11 @@ import socket
 import my_udp
 import json
 
+TEST_CLIENT_IP = socket.gethostbyname(socket.gethostname())
+
 
 def getClients():
-    return [("192.168.123.78", 8001), ("192.168.123.78", 8002), ("192.168.123.78", 8003)]
+    return [(TEST_CLIENT_IP, 8001), (TEST_CLIENT_IP, 8002), (TEST_CLIENT_IP, 8003)]
 
 
 class ChatServer:

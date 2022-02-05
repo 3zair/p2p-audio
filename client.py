@@ -6,6 +6,11 @@ import my_udp
 import logging
 import json
 
+# leve lconfig
+levelConfig = {
+    1: []
+}
+
 SERVER_IP = socket.gethostbyname(socket.gethostname())
 TEST_CLIENT_IP = socket.gethostbyname(socket.gethostname())
 
@@ -21,6 +26,7 @@ PORTS = [9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007]
 local_port = 8002
 listening_clients = [(TEST_CLIENT_IP, 8001)]  # set
 listening_channels = [6, 7]  # set
+
 
 #
 # local_port = 8003
@@ -130,8 +136,8 @@ class ChatClient:
     def send_data_to_server(self):
         while True:
             try:
-                # data = self.recording_stream.read(1024, exception_on_overflow=False)
-                self.s.sendto("adas".encode(), (getServerIP(), getServerPort()))
+                data = self.recording_stream.read(1024, exception_on_overflow=False)
+                self.s.sendto(data, (getServerIP(), getServerPort()))
             except Exception as e:
                 logging.error("send_data_to_server err: {}".format(e))
             time.sleep(5)

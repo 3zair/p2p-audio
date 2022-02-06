@@ -27,8 +27,6 @@ class ChatServer:
                 # broadcast
                 if c == addr:
                     continue
-                # msg = my_udp.udpMsg(body=json.dumps({"from": addr, "channel": id}), voiceDataLen=len("adas"),
-                #                     voiceData=data)
                 msg = my_udp.udpMsg(body=json.dumps({"from": addr, "channel": id}), voiceDataLen=1024,
                                     voiceData=data)
                 s.sendto(msg.getMsg(), c)

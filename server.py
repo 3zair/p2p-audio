@@ -14,15 +14,15 @@ class ChatServer:
     def __init__(self):
         base_port = 9000
         # init channels
-        ids = [1, 2, 3, 4, 5, 6, 7, 8]
         self.channels = mgo.getChannels()
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-        for i in range(len(ids)):
+        for channel_id in self.channels.keys():
             threading.Thread(target=self.serverStart,
-                             args=(ids[i], socket.gethostbyname(socket.gethostname()), base_port + i)).start()
+                             args=(channel_id, self.channels[channel_id]["ip"],
+                                   self.channels[channel_id]["port"])).start()
 
-    def serverStart(self, id, ip, port):
+    def serverStart(self, channel_id, ip, port):
         # 建立IPv4,UDP的socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # 绑定端口：
@@ -33,9 +33,14 @@ class ChatServer:
 
         clients = mgo.getClients()
         while True:
+            import time
+            print(time.time())
             # 接收来自客户端的数据,使用recv from
             data, addr = s.recvfrom(4096)
             msg = my_udp.udpMsg(msg=data)
+            logging.info(
+                "receive from {}, type:{} headers:{} body:{}".format(addr, msg.msgType, msg.headers, msg.getBody()))
+
             if msg.msgType in [100, 101]:
                 for uid in clients.keys():
                     # broadcast
@@ -50,11 +55,12 @@ class ChatServer:
                             self.channels[body["channel_id"]]["cur_user"] is None:
                         # 占用成功
                         self.channels[body["channel_id"]]["cur_user"] = body["uid"]
-                        ret_msg = my_udp.udpMsg(200, json.dumps({"ret": True}), voiceData="")
+                        ret_msg = my_udp.udpMsg(msgType=200, t=time.time(),
+                                                body=json.dumps({"ret": True, "channel_id": body["channel_id"]}))
                         s.sendto(ret_msg.getMsg(), addr)
                     else:
                         # 当前channel已被占用，返回失败
-                        ret_msg = my_udp.udpMsg(200, json.dumps(
+                        ret_msg = my_udp.udpMsg(msgType=200, t=time.time(), body=json.dumps(
                             {"ret": False, "cur_uid": self.channels[body["channel_id"]]["cur_user"]}),
                                                 voiceData="")
                         s.sendto(ret_msg.getMsg(), addr)
@@ -68,13 +74,15 @@ class ChatServer:
                             self.channels[body["channel_id"]]["cur_user"] == body["uid"]:
                         # 释放成功
                         self.channels[body["channel_id"]]["cur_user"] = None
-                        ret_msg = my_udp.udpMsg(200, json.dumps({"ret": True}), voiceData="")
+                        ret_msg = my_udp.udpMsg(msgType=200, t=time.time(), body=json.dumps({"ret": True}),
+                                                voiceData="")
                         s.sendto(ret_msg.getMsg(), addr)
                     else:
                         logging.warning(
                             "释放通道失败 用户ID或者通道ID错误: uid:{} channel_id:{}".format(body["uid"], body["channel_id"]))
                         # 当前用户已不再占用当前通道
-                        ret_msg = my_udp.udpMsg(200, json.dumps({"ret": True}), voiceData="")
+                        ret_msg = my_udp.udpMsg(msgType=200, t=time.time(), body=json.dumps({"ret": True}),
+                                                voiceData="")
                         s.sendto(ret_msg.getMsg(), addr)
                 else:
                     logging.error("invalid channel_id: {}".format(body["channel_id"]))

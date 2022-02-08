@@ -16,13 +16,13 @@ HeaderSize = 12
 
 
 class udpMsg:
-    def __init__(self, msgType=None, body="", voiceDataLen=1024, voiceData="", msg=None):
+    def __init__(self, msgType=None, t=0, body="", voiceDataLen=1024, voiceData="", msg=None):
         if msg is None:
             if msgType not in [100, 101, 200]:
                 raise [Exception, "invalid msg type :{}".format(msgType)]
             self.body = body
             self.voiceData = voiceData
-            self.headers = [msgType, time.time(), len(body)]
+            self.headers = [msgType, t, len(body)]
             self.msg = struct.pack("!IfI", *self.headers) + self.body.encode()
 
             if msgType in [100, 101]:

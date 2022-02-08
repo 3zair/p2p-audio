@@ -9,8 +9,8 @@ def getClients():
     clients = {}
     for u in users:
         print("id:{} name:{} ip:{} port:{} level:{} channels:{}".format(u["_id"], u["name"], u["ip"], u["port"],
-                                                                        u["level"], u["channels"]))
-        clients[u["_id"]] = {
+                                                                        u["level"], u["listening_channels"]))
+        clients[str(u["_id"])] = {
             "name": u["name"],
             "ip": u["ip"],
             "port": u["port"],
@@ -28,6 +28,6 @@ def getChannels():
     channels = {}
     for c in channel_ret:
         print("id:{} ip:{} port:{}".format(c["_id"], c["ip"], c["port"]))
-        channels[c["_id"]] = {"ip": c["ip"], "port": c["port"]}
+        channels[str(c["_id"])] = {"ip": c["ip"], "port": c["port"]}
 
     return channels

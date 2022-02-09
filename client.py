@@ -12,7 +12,7 @@ import time
 
 class ChatClient:
     def __init__(self, ip, port):
-        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio"]
+        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_office"]
         self.col_user = db["user"]
         self.col_channel = db["channel"]
 
@@ -70,13 +70,13 @@ class ChatClient:
         while True:
             if len(self.play_frames) > 0:
                 pfs = self.play_frames.pop()
+                logging.info("play:{}".format(len(pfs)))
                 for pf in pfs:
-                    print("play{}".format(pf))
                     self.playing_stream.write(pf)
 
     def choose_channel(self, channel_id):
-        logging.info("choose_channel {}".format(channel_id))
-        msg = my_udp.udpMsg(msgType=200, t=time.time(),
+        logging.info("choose_channel {} {}".format(channel_id, self.user))
+        msg = my_udp.udpMsg(msgType=200,
                             body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
         self.s.sendto(msg.getMsg(), self.getChannel())
         t = time.time()
@@ -89,7 +89,7 @@ class ChatClient:
 
     def cancel_channel(self, channel_id):
         logging.info("cancel_channel {}".format(channel_id))
-        msg = my_udp.udpMsg(msgType=201, t=time.time(),
+        msg = my_udp.udpMsg(msgType=201,
                             body=json.dumps({"uid": self.user["id", "channel_id":channel_id]}))
         self.s.sendto(msg.getMsg(), self.getChannel())
         t = time.time()
@@ -111,8 +111,8 @@ class ChatClient:
                 data, _server = self.s.recvfrom(4096)
                 msg = my_udp.udpMsg(msg=data)
                 msg_body = json.loads(msg.getBody())
-                # logging.info(
-                #     "receive header: {} body:{}".format(msg.headers, msg_body))
+
+                # logging.info("receive header: {} body:{}".format(msg.headers, msg_body))
                 # 占用通道请求的结果
                 if msg.msgType == 200:
                     if msg_body["ret"]:
@@ -126,8 +126,8 @@ class ChatClient:
                 # if msg.msgType == 101 and msg_body["from"] in User["listening_clients"]:
                 #     logging.info("【监听客户端】播放，name: {}".format(msg_body["from"]))
                 #
-                #     client_orders.append(msg.MsgTime)
-                #     client_buffer[msg.MsgTime] = msg.getVoiceData()
+                #     client_orders.append(msg.msgNum)
+                #     client_buffer[msg.msgNum] = msg.getVoiceData()
                 #     if len(client_orders) == 20:
                 #         client_orders.sort()
                 #         for t in client_orders:
@@ -137,9 +137,11 @@ class ChatClient:
 
                 # TODO 是当前监听的信道，放入播放队列
                 if msg.msgType == 100 and msg_body["channel_id"] in self.user["listening_channels"]:
-                    #logging.info("【监听信道】 播放，name: {}, channel:{}".format(msg_body["from"], msg_body["channel_id"]))
-                    channel_orders.append(msg.MsgTime)
-                    channel_buffer[msg.MsgTime] = msg.getVoiceData()
+                    logging.info(
+                        "【监听信道】 播放，name: {}, channel:{} t:{}".format(msg_body["from"], msg_body["channel_id"],
+                                                                     msg.msgNum))
+                    channel_orders.append(msg.msgNum)
+                    channel_buffer[msg.msgNum] = msg.getVoiceData()
                     if len(channel_orders) == 20:
                         channel_orders.sort()
                         play_frame_body = []
@@ -205,26 +207,36 @@ class ChatClient:
     def send_voice_data(self, type, to_id):
         logging.info("start_send_voice_data")
         if type == "channel":
+            num = 0
             while self.ChannelFlag:
                 if len(self.record_frames) > 0:
                     try:
                         body = {"from": self.user["id"], "channel_id": self.CurChannel}
-                        msg = my_udp.udpMsg(msgType=100, t=time.time(), body=json.dumps(body),
+                        msg = my_udp.udpMsg(msgType=100, num=num, body=json.dumps(body),
                                             voiceData=self.record_frames.pop())
                         self.s.sendto(msg.getMsg(),
                                       (self.Channels[to_id]["ip"], self.Channels[to_id]["port"]))
+                        num += 1
+                        # 最大标号100000
+                        if num == 100000:
+                            num = 0
                     except Exception as e:
                         logging.error("send_data_to_server err: {}".format(e))
         elif type == "user":
+            num = 0
             while self.UserFlag:
                 if len(self.record_frames) > 0:
                     try:
                         # TODO
                         body = {"from": self.user["id"]}
-                        msg = my_udp.udpMsg(msgType=101, t=time.time(), body=json.dumps(body),
+                        msg = my_udp.udpMsg(msgType=101, num=num, body=json.dumps(body),
                                             voiceData=self.record_frames.pop())
                         self.s.sendto(msg.getMsg(),
                                       (self.ClientsInfo[to_id]["ip"], self.ClientsInfo[to_id]["port"]))
+                        num += 1
+                        # 最大标号100000
+                        if num == 100000:
+                            num = 0
                     except Exception as e:
                         logging.error("send_data_to_user err: {}".format(e))
 
@@ -294,10 +306,10 @@ class ChatClient:
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
-ret = client.choose_channel("1")
-if not ret:
-    logging.error("choose_channel err:{}".format(ret))
-
-client.start_record_voice_data()
-client.start_send_to_channel("1")
+client = ChatClient(socket.gethostbyname(socket.gethostname()), 8001)
+# ret = client.choose_channel("1")
+# if not ret:
+#     logging.error("choose_channel err:{}".format(ret))
+#
+# client.start_record_voice_data()
+# client.start_send_to_channel("1")

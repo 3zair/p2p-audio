@@ -16,29 +16,29 @@ HeaderSize = 12
 
 
 class udpMsg:
-    def __init__(self, msgType=None, t=0, body="", voiceDataLen=1024, voiceData="", msg=None):
+    def __init__(self, msgType=None, num=0, body="", voiceDataLen=1024, voiceData="", msg=None):
         if msg is None:
             if msgType not in [100, 101, 200]:
                 raise [Exception, "invalid msg type :{}".format(msgType)]
             self.body = body
             self.voiceData = voiceData
-            self.headers = [msgType, t, len(body)]
-            self.msg = struct.pack("!IfI", *self.headers) + self.body.encode()
-
+            self.msgNum = num
+            self.msgType = msgType
+            self.headers = [self.msgType, self.msgNum, len(body)]
+            self.msg = struct.pack("!III", *self.headers) + self.body.encode()
             if msgType in [100, 101]:
                 self.msg += voiceData
         else:
             if len(msg) > HeaderSize:
                 self.msg = msg
                 self.voiceData = ""
-                self.headers = struct.unpack("!IfI", msg[:HeaderSize])
+                self.headers = struct.unpack("!III", msg[:HeaderSize])
                 self.msgType = self.headers[0]
-                self.MsgTime = self.headers[1]
+                self.msgNum = self.headers[1]
                 self.body = msg[HeaderSize:HeaderSize + self.headers[2]].decode()
-
-                if msgType in [100, 101]:
-                    self.voiceData = msg[
-                                     HeaderSize + self.headers[2]:HeaderSize + self.headers[HeaderSize] + voiceDataLen]
+                if self.msgType in [100, 101]:
+                    self.voiceData = msg[HeaderSize + self.headers[2]:
+                                         HeaderSize + self.headers[2] + voiceDataLen]
             else:
                 raise [Exception, "invalid msg, len:{} is too short ".format(len(msg))]
 
@@ -48,8 +48,8 @@ class udpMsg:
     def getMsg(self):
         return self.msg
 
-    def getMsgTime(self):
-        return self.MsgTime
+    def getMsgNum(self):
+        return self.msgNum
 
     def getMsgType(self):
         return self.msgType

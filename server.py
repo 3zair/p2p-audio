@@ -34,12 +34,11 @@ class ChatServer:
         clients = mgo.getClients()
         while True:
             import time
-            print(time.time())
             # 接收来自客户端的数据,使用recv from
             data, addr = s.recvfrom(4096)
             msg = my_udp.udpMsg(msg=data)
             logging.info(
-                "receive from {}, type:{} headers:{} body:{}".format(addr, msg.msgType, msg.headers, msg.getBody()))
+                "receive from {}, type:{} t: {} body:{}".format(addr, msg.msgType, msg.msgNum, msg.getBody()))
 
             if msg.msgType in [100, 101]:
                 for uid in clients.keys():
@@ -52,15 +51,16 @@ class ChatServer:
                 body = json.loads(msg.getBody())
                 if body["channel_id"] in self.channels:
                     if "cur_user" not in self.channels[body["channel_id"]] or \
-                            self.channels[body["channel_id"]]["cur_user"] is None:
+                            self.channels[body["channel_id"]]["cur_user"] is None or \
+                            self.channels[body["channel_id"]]["cur_user"] == body["uid"]:
                         # 占用成功
                         self.channels[body["channel_id"]]["cur_user"] = body["uid"]
-                        ret_msg = my_udp.udpMsg(msgType=200, t=time.time(),
+                        ret_msg = my_udp.udpMsg(msgType=200,
                                                 body=json.dumps({"ret": True, "channel_id": body["channel_id"]}))
                         s.sendto(ret_msg.getMsg(), addr)
                     else:
                         # 当前channel已被占用，返回失败
-                        ret_msg = my_udp.udpMsg(msgType=200, t=time.time(), body=json.dumps(
+                        ret_msg = my_udp.udpMsg(msgType=200, body=json.dumps(
                             {"ret": False, "cur_uid": self.channels[body["channel_id"]]["cur_user"]}),
                                                 voiceData="")
                         s.sendto(ret_msg.getMsg(), addr)
@@ -74,14 +74,14 @@ class ChatServer:
                             self.channels[body["channel_id"]]["cur_user"] == body["uid"]:
                         # 释放成功
                         self.channels[body["channel_id"]]["cur_user"] = None
-                        ret_msg = my_udp.udpMsg(msgType=200, t=time.time(), body=json.dumps({"ret": True}),
+                        ret_msg = my_udp.udpMsg(msgType=200, body=json.dumps({"ret": True}),
                                                 voiceData="")
                         s.sendto(ret_msg.getMsg(), addr)
                     else:
                         logging.warning(
                             "释放通道失败 用户ID或者通道ID错误: uid:{} channel_id:{}".format(body["uid"], body["channel_id"]))
                         # 当前用户已不再占用当前通道
-                        ret_msg = my_udp.udpMsg(msgType=200, t=time.time(), body=json.dumps({"ret": True}),
+                        ret_msg = my_udp.udpMsg(msgType=200, body=json.dumps({"ret": True}),
                                                 voiceData="")
                         s.sendto(ret_msg.getMsg(), addr)
                 else:

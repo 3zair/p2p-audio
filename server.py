@@ -1,9 +1,7 @@
 import socket
 import my_udp
 import json
-import pymongo
 import logging
-import struct
 import mgo
 import threading
 
@@ -33,12 +31,11 @@ class ChatServer:
 
         clients = mgo.getClients()
         while True:
-            import time
             # 接收来自客户端的数据,使用recv from
             data, addr = s.recvfrom(4096)
             msg = my_udp.udpMsg(msg=data)
-            logging.info(
-                "receive from {}, type:{} t: {} body:{}".format(addr, msg.msgType, msg.msgNum, msg.getBody()))
+            logging.info("receive from {}, type:{} num: {} body:{}"
+                         .format(addr, msg.msgType, msg.msgNum, msg.getBody()))
 
             if msg.msgType in [100, 101]:
                 for uid in clients.keys():
@@ -46,6 +43,7 @@ class ChatServer:
                     if clients[uid]["ip"] == addr[0] and clients[uid]["port"] == addr[1]:
                         continue
                     s.sendto(msg.getMsg(), (clients[uid]["ip"], clients[uid]["port"]))
+
             # 200 占用通道请求
             if msg.msgType == 200:
                 body = json.loads(msg.getBody())
@@ -53,6 +51,7 @@ class ChatServer:
                     if "cur_user" not in self.channels[body["channel_id"]] or \
                             self.channels[body["channel_id"]]["cur_user"] is None or \
                             self.channels[body["channel_id"]]["cur_user"] == body["uid"]:
+
                         # 占用成功
                         self.channels[body["channel_id"]]["cur_user"] = body["uid"]
                         ret_msg = my_udp.udpMsg(msgType=200,
@@ -66,12 +65,14 @@ class ChatServer:
                         s.sendto(ret_msg.getMsg(), addr)
                 else:
                     logging.error("invalid channel_id: {}".format(body["channel_id"]))
+
             # 201 释放通道请求
             elif msg.msgType == 201:
                 body = json.loads(msg.getBody())
                 if body["channel_id"] in self.channels:
                     if "cur_user" in self.channels[body["channel_id"]] and \
                             self.channels[body["channel_id"]]["cur_user"] == body["uid"]:
+
                         # 释放成功
                         self.channels[body["channel_id"]]["cur_user"] = None
                         ret_msg = my_udp.udpMsg(msgType=200, body=json.dumps({"ret": True}),

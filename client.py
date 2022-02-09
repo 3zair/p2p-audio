@@ -42,7 +42,8 @@ class ChatClient:
         self.CurChannel = None  # 当前占用的通道
         self.SetChannelRet = {}
 
-        self.init(ip, port)
+        self.Init(ip, port)
+
         # udp
         self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.s.bind((self.user["ip"], self.user["port"]))
@@ -52,10 +53,8 @@ class ChatClient:
         self.audio_format = pyaudio.paInt16
         self.channels = 1
         self.rate = 44100
-
         self.RECORD_SECONDS = 10
         self.WAVE_OUTPUT_FILENAME = "output"
-
         # start threads
         threading.Thread(target=self.receive_server_data).start()
         self.playing_stream = self.p.open(format=self.audio_format, channels=self.channels, rate=self.rate,
@@ -66,62 +65,56 @@ class ChatClient:
 
         threading.Thread(target=self.play).start()
 
-    def play(self):
-        while True:
-            if len(self.play_frames) > 0:
-                pfs = self.play_frames.pop()
-                logging.info("play:{}".format(len(pfs)))
-                for pf in pfs:
-                    self.playing_stream.write(pf)
+    def Init(self, ip, port):
+        # TODO read from conf
+        self.user["ip"] = ip
+        self.user["port"] = port
 
-    def choose_channel(self, channel_id):
-        logging.info("choose_channel {} {}".format(channel_id, self.user))
-        msg = my_udp.udpMsg(msgType=200,
-                            body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
-        self.s.sendto(msg.getMsg(), self.getChannel())
-        t = time.time()
-        while self.CurChannel != channel_id:
-            if time.time() - t > 1:
-                return "Time out"
-            if "cur_uid" in self.SetChannelRet:
-                return "当前通道被{}占用".format(self.ClientsInfo[self.SetChannelRet["cur_uid"]])
-        return True
-
-    def cancel_channel(self, channel_id):
-        logging.info("cancel_channel {}".format(channel_id))
-        msg = my_udp.udpMsg(msgType=201,
-                            body=json.dumps({"uid": self.user["id", "channel_id":channel_id]}))
-        self.s.sendto(msg.getMsg(), self.getChannel())
-        t = time.time()
-        while self.CurChannel is None:
-            if time.time() - t > 1:
-                return "Time out"
-        self.ChannelFlag = False
-        return True
+        users = self.col_user.find()
+        for u in users:
+            if self.user["ip"] == u["ip"] and self.user["port"] == u["port"]:
+                self.user["name"] = u["name"]
+                self.user["id"] = str(u["_id"])
+                self.user["level"] = u["level"]
+                self.user["listening_channels"] = [] if "listening_channels" not in u else u["listening_channels"][:]
+                self.user["listening_clients"] = [] if "listening_clients" not in u else u["listening_clients"][:]
+            else:
+                self.ClientsInfo[str(u["_id"])] = {
+                    "name": u["name"],
+                    "ip": u["ip"],
+                    "port": u["port"],
+                    "level": u["level"],
+                }
+            logging.info("client id:{} name:{} ip:{} port:{} level:{} channels:{}".format(
+                u["_id"], u["name"], u["ip"], u["port"], u["level"], u["listening_channels"]))
+        channel_ret = self.col_channel.find()
+        for c in channel_ret:
+            logging.info(
+                "channel id:{} ip:{} port:{}".format(c["_id"], c["ip"], c["port"]))
+            self.Channels[str(c["_id"])] = {"port": c["port"], "ip": c["ip"]}
 
     # 监听数据
     def receive_server_data(self):
-        channel_buffer = {}
-        channel_orders = []
+        channel_buffer, client_buffer = {}, {}
+        channel_orders, client_orders = [], []
 
-        client_buffer = {}
-        client_orders = []
         while True:
             try:
                 data, _server = self.s.recvfrom(4096)
                 msg = my_udp.udpMsg(msg=data)
                 msg_body = json.loads(msg.getBody())
 
-                # logging.info("receive header: {} body:{}".format(msg.headers, msg_body))
                 # 占用通道请求的结果
                 if msg.msgType == 200:
                     if msg_body["ret"]:
                         self.CurChannel = msg_body["channel_id"]
                     else:
                         self.SetChannelRet["cur_uid"] = msg_body["user"]
+                # 取消占用通道请求的结果
                 elif msg.msgType == 201:
                     if msg_body["ret"]:
                         self.CurChannel = None
+
                 # TODO 获取当前监听的的客户端,放入播放队列
                 # if msg.msgType == 101 and msg_body["from"] in User["listening_clients"]:
                 #     logging.info("【监听客户端】播放，name: {}".format(msg_body["from"]))
@@ -137,9 +130,8 @@ class ChatClient:
 
                 # TODO 是当前监听的信道，放入播放队列
                 if msg.msgType == 100 and msg_body["channel_id"] in self.user["listening_channels"]:
-                    logging.info(
-                        "【监听信道】 播放，name: {}, channel:{} t:{}".format(msg_body["from"], msg_body["channel_id"],
-                                                                     msg.msgNum))
+                    logging.info("【监听信道】 播放，name: {}, channel:{} num:{}".format(
+                        msg_body["from"], msg_body["channel_id"], msg.msgNum))
                     channel_orders.append(msg.msgNum)
                     channel_buffer[msg.msgNum] = msg.getVoiceData()
                     if len(channel_orders) == 20:
@@ -153,6 +145,33 @@ class ChatClient:
                         channel_buffer = {}
             except Exception as e:
                 logging.error("receive_server_data err {}".format(e))
+
+    # 请求占用channel
+    def choose_channel(self, channel_id):
+        logging.info("choose_channel {} {}".format(channel_id, self.user))
+        msg = my_udp.udpMsg(msgType=200,
+                            body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
+        self.s.sendto(msg.getMsg(), self.getChannel())
+        t = time.time()
+        while self.CurChannel != channel_id:
+            if time.time() - t > 1:
+                return "Time out"
+            if "cur_uid" in self.SetChannelRet:
+                return "当前通道被{}占用".format(self.ClientsInfo[self.SetChannelRet["cur_uid"]])
+        return True
+
+    # 取消占用channel
+    def cancel_channel(self, channel_id):
+        logging.info("cancel_channel {}".format(channel_id))
+        msg = my_udp.udpMsg(msgType=201,
+                            body=json.dumps({"uid": self.user["id", "channel_id":channel_id]}))
+        self.s.sendto(msg.getMsg(), self.getChannel())
+        t = time.time()
+        while self.CurChannel is None:
+            if time.time() - t > 1:
+                return "Time out"
+        self.ChannelFlag = False
+        return True
 
     # 开始收取声音数据
     def start_record_voice_data(self):
@@ -200,12 +219,14 @@ class ChatClient:
         t.setDaemon(True)
         t.start()
 
+    # 停止声音数据发送到客户端上 101
     def stop_send_to_user(self):
         logging.info("stop_send_to_user")
         self.UserFlag = False
 
     def send_voice_data(self, type, to_id):
         logging.info("start_send_voice_data")
+        # 发送到通道
         if type == "channel":
             num = 0
             while self.ChannelFlag:
@@ -222,6 +243,7 @@ class ChatClient:
                             num = 0
                     except Exception as e:
                         logging.error("send_data_to_server err: {}".format(e))
+        # 发送给用户
         elif type == "user":
             num = 0
             while self.UserFlag:
@@ -240,35 +262,16 @@ class ChatClient:
                     except Exception as e:
                         logging.error("send_data_to_user err: {}".format(e))
 
-    def init(self, ip, port):
-        # TODO read from conf
-        self.user["ip"] = ip
-        self.user["port"] = port
-
-        users = self.col_user.find()
-        for u in users:
-            if self.user["ip"] == u["ip"] and self.user["port"] == u["port"]:
-                self.user["name"] = u["name"]
-                self.user["id"] = str(u["_id"])
-                self.user["level"] = u["level"]
-                self.user["listening_channels"] = [] if "listening_channels" not in u else u["listening_channels"][:]
-                self.user["listening_clients"] = [] if "listening_clients" not in u else u["listening_clients"][:]
-            else:
-                self.ClientsInfo[str(u["_id"])] = {
-                    "name": u["name"],
-                    "ip": u["ip"],
-                    "port": u["port"],
-                    "level": u["level"],
-                }
-            logging.info(
-                "client id:{} name:{} ip:{} port:{} level:{} channels:{}".format(u["_id"], u["name"], u["ip"],
-                                                                                 u["port"],
-                                                                                 u["level"], u["listening_channels"]))
-        channel_ret = self.col_channel.find()
-        for c in channel_ret:
-            logging.info(
-                "channel id:{} ip:{} port:{}".format(c["_id"], c["ip"], c["port"]))
-            self.Channels[str(c["_id"])] = {"port": c["port"], "ip": c["ip"]}
+    # 播放声音
+    def play(self):
+        while True:
+            if len(self.play_frames) > 0:
+                pfs = self.play_frames.pop()
+                logging.info("play:{}".format(len(pfs)))
+                for pf in pfs:
+                    pass
+                    # todo 过滤噪音
+                    # self.playing_stream.write(pf)
 
     def getChannel(self):
         channel_id = random.choice(list(self.Channels.keys()))
@@ -306,10 +309,10 @@ class ChatClient:
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-client = ChatClient(socket.gethostbyname(socket.gethostname()), 8001)
-# ret = client.choose_channel("1")
-# if not ret:
-#     logging.error("choose_channel err:{}".format(ret))
-#
-# client.start_record_voice_data()
-# client.start_send_to_channel("1")
+client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
+ret = client.choose_channel("1")
+if not ret:
+    logging.error("choose_channel err:{}".format(ret))
+
+client.start_record_voice_data()
+client.start_send_to_channel("1")

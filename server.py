@@ -10,7 +10,6 @@ VOICE_THUNK_SIZE = 1024
 
 class ChatServer:
     def __init__(self):
-        base_port = 9000
         # init channels
         self.channels = mgo.getChannels()
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -32,17 +31,20 @@ class ChatServer:
         clients = mgo.getClients()
         while True:
             # 接收来自客户端的数据,使用recv from
-            data, addr = s.recvfrom(4096)
+            data, addr = s.recvfrom(2048)
             msg = my_udp.udpMsg(msg=data)
-            logging.info("receive from {}, type:{} num: {} body:{}"
-                         .format(addr, msg.msgType, msg.msgNum, msg.getBody()))
+            # logging.info("receive from {}, type:{} num: {} body:{}"
+            #              .format(addr, msg.msgType, msg.msgNum, msg.getBody()))
 
             if msg.msgType in [100, 101]:
                 for uid in clients.keys():
                     # broadcast
                     if clients[uid]["ip"] == addr[0] and clients[uid]["port"] == addr[1]:
                         continue
-                    s.sendto(msg.getMsg(), (clients[uid]["ip"], clients[uid]["port"]))
+                    try:
+                        s.sendto(msg.getMsg(), (clients[uid]["ip"], clients[uid]["port"]))
+                    except Exception as e:
+                        logging.error("send to {}:{},err:{}".format(clients[uid]["ip"], clients[uid]["port"], e))
 
             # 200 占用通道请求
             if msg.msgType == 200:
@@ -70,12 +72,13 @@ class ChatServer:
             elif msg.msgType == 201:
                 body = json.loads(msg.getBody())
                 if body["channel_id"] in self.channels:
+                    logging.error(self.channels[body["channel_id"]])
                     if "cur_user" in self.channels[body["channel_id"]] and \
                             self.channels[body["channel_id"]]["cur_user"] == body["uid"]:
 
                         # 释放成功
                         self.channels[body["channel_id"]]["cur_user"] = None
-                        ret_msg = my_udp.udpMsg(msgType=200, body=json.dumps({"ret": True}),
+                        ret_msg = my_udp.udpMsg(msgType=201, body=json.dumps({"ret": True}),
                                                 voiceData="")
                         s.sendto(ret_msg.getMsg(), addr)
                     else:

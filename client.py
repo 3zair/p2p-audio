@@ -1,5 +1,8 @@
 import socket
 import threading
+
+import bson
+
 import my_udp
 import logging
 import json
@@ -12,10 +15,9 @@ import time
 
 class ChatClient:
     def __init__(self, ip, port):
-        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_office"]
+        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_yjy_2"]
         self.col_user = db["user"]
         self.col_channel = db["channel"]
-
         """
         当前用户的信息
         keys：
@@ -51,13 +53,13 @@ class ChatClient:
         self.p = pyaudio.PyAudio()
         self.chunk_size = 1024  # 512
         self.audio_format = pyaudio.paInt16
-        self.channels = 1
-        self.rate = 44100
+        self.audio_channels = 1
+        self.rate = 16000
         self.RECORD_SECONDS = 10
         self.WAVE_OUTPUT_FILENAME = "output"
         # start threads
         threading.Thread(target=self.receive_server_data).start()
-        self.playing_stream = self.p.open(format=self.audio_format, channels=self.channels, rate=self.rate,
+        self.playing_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                                           output=True,
                                           frames_per_buffer=self.chunk_size)
         self.record_frames = []
@@ -100,7 +102,7 @@ class ChatClient:
 
         while True:
             try:
-                data, _server = self.s.recvfrom(4096)
+                data, _server = self.s.recvfrom(2048)
                 msg = my_udp.udpMsg(msg=data)
                 msg_body = json.loads(msg.getBody())
 
@@ -164,10 +166,10 @@ class ChatClient:
     def cancel_channel(self, channel_id):
         logging.info("cancel_channel {}".format(channel_id))
         msg = my_udp.udpMsg(msgType=201,
-                            body=json.dumps({"uid": self.user["id", "channel_id":channel_id]}))
+                            body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
         self.s.sendto(msg.getMsg(), self.getChannel())
         t = time.time()
-        while self.CurChannel is None:
+        while self.CurChannel is not None:
             if time.time() - t > 1:
                 return "Time out"
         self.ChannelFlag = False
@@ -188,29 +190,32 @@ class ChatClient:
 
     # 收取声音数据
     def record_voice_data(self):
-        recording_stream = self.p.open(format=self.audio_format, channels=self.channels, rate=self.rate,
+        recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                                        input=True,
                                        frames_per_buffer=self.chunk_size)
         while self.VoiceRecordFlag:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(1024, exception_on_overflow=False)
             self.record_frames.append(data)
+            if len(self.record_frames) > 100:
+                # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
+                self.record_frames = []
         recording_stream.close()
         return
 
     # 将声音数据发送到通道上 100
-    def start_send_to_channel(self, channel_id):
-        logging.info("start_send_to_channel {}".format(channel_id))
+    def start_send_to_channel(self):
+        logging.info("start_send_to_channel {}".format(self.CurChannel))
 
         self.ChannelFlag = True
-        t = threading.Thread(target=self.send_voice_data, args=("channel", channel_id))
+        t = threading.Thread(target=self.send_voice_data, args=("channel", self.CurChannel))
         t.start()
 
     # 停止向当前的通道发送数据
     def stop_send_to_channel(self):
-        logging.info("stop_send_to_channel {}".format(self.CurChannel))
+        logging.info("stop_send_to_channel")
         self.ChannelFlag = False
-        self.cancel_channel(self.CurChannel)
+        #self.cancel_channel(self.CurChannel)
 
     # 将声音数据发送到客户端上 101
     def send_to_user(self, uid):
@@ -232,7 +237,7 @@ class ChatClient:
             while self.ChannelFlag:
                 if len(self.record_frames) > 0:
                     try:
-                        body = {"from": self.user["id"], "channel_id": self.CurChannel}
+                        body = {"from": self.user["id"], "channel_id": to_id}
                         msg = my_udp.udpMsg(msgType=100, num=num, body=json.dumps(body),
                                             voiceData=self.record_frames.pop())
                         self.s.sendto(msg.getMsg(),
@@ -269,9 +274,7 @@ class ChatClient:
                 pfs = self.play_frames.pop()
                 logging.info("play:{}".format(len(pfs)))
                 for pf in pfs:
-                    pass
-                    # todo 过滤噪音
-                    # self.playing_stream.write(pf)
+                    self.playing_stream.write(pf)
 
     def getChannel(self):
         channel_id = random.choice(list(self.Channels.keys()))
@@ -279,40 +282,43 @@ class ChatClient:
 
     # 设置使用的信道
     def setCurChannel(self, channel_id):
+        logging.info("")
         self.CurChannel = channel_id
         return
 
     # 开始听某个客户端的消息
     def addListening_client(self, uid):
         self.user["listening_clients"].append(uid)
-        self.col_user.update_one({"_id": self.user["id"]}, {"$addToSet": {"listening_clients": uid}})
+        self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$addToSet": {"listening_clients": uid}})
         return
 
     def delListening_client(self, uid):
         self.user["listening_clients"].remove(uid)
-        self.col_user.update_one({"_id": self.user["id"]}, {"$pull": {"listening_clients": uid}})
+        self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$pull": {"listening_clients": uid}})
 
         return
 
     # 开始监听某个channel
     def addListening_channel(self, channel_id):
-        self.user["listening_channels"].append(self, channel_id)
-        self.col_user.update_one({"_id": self.user["id"]}, {"$addToSet": {"listening_channels": channel_id}})
+        logging.info("addListening_channel {}".format(channel_id))
+        self.user["listening_channels"].append(channel_id)
+        self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])},
+                                 {"$addToSet": {"listening_channels": channel_id}})
 
         return
 
     def delListening_channel(self, channel_id):
+        logging.info("delListening_channel {}".format(channel_id))
         self.user["listening_channels"].remove(channel_id)
-        self.col_user.update_one({"_id": self.user["id"]}, {"$pull": {"listening_channels": channel_id}})
+        self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$pull": {"listening_channels": channel_id}})
 
         return
 
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
-ret = client.choose_channel("1")
-if not ret:
-    logging.error("choose_channel err:{}".format(ret))
-
-client.start_record_voice_data()
-client.start_send_to_channel("1")
+# logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
+# ret = client.choose_channel("1")
+# if not ret:
+#     logging.error("choose_channel err:{}".format(ret))
+#
+# client.start_record_voice_data()
+# client.start_send_to_channel("1")

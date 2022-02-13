@@ -15,7 +15,7 @@ import time
 
 class ChatClient:
     def __init__(self, ip, port):
-        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_yjy_2"]
+        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_home"]
         self.col_user = db["user"]
         self.col_channel = db["channel"]
         """
@@ -51,7 +51,7 @@ class ChatClient:
         self.s.bind((self.user["ip"], self.user["port"]))
 
         self.p = pyaudio.PyAudio()
-        self.chunk_size = 1024  # 512
+        self.chunk_size = 512  # 512
         self.audio_format = pyaudio.paInt16
         self.audio_channels = 1
         self.rate = 16000
@@ -102,7 +102,7 @@ class ChatClient:
 
         while True:
             try:
-                data, _server = self.s.recvfrom(2048)
+                data, _server = self.s.recvfrom(1500)
                 msg = my_udp.udpMsg(msg=data)
                 msg_body = json.loads(msg.getBody())
 
@@ -132,11 +132,11 @@ class ChatClient:
 
                 # TODO 是当前监听的信道，放入播放队列
                 if msg.msgType == 100 and msg_body["channel_id"] in self.user["listening_channels"]:
-                    logging.info("【监听信道】 播放，name: {}, channel:{} num:{}".format(
-                        msg_body["from"], msg_body["channel_id"], msg.msgNum))
+                    # logging.info("【监听信道】 播放，name: {}, channel:{} num:{}".format(
+                    #     msg_body["from"], msg_body["channel_id"], msg.msgNum))
                     channel_orders.append(msg.msgNum)
                     channel_buffer[msg.msgNum] = msg.getVoiceData()
-                    if len(channel_orders) == 20:
+                    if len(channel_orders) == 10:
                         channel_orders.sort()
                         play_frame_body = []
                         for t in channel_orders:
@@ -195,8 +195,9 @@ class ChatClient:
                                        frames_per_buffer=self.chunk_size)
         while self.VoiceRecordFlag:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
-            data = recording_stream.read(1024, exception_on_overflow=False)
+            data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
             self.record_frames.append(data)
+            time.sleep(0.8 * self.chunk_size / self.rate)
             if len(self.record_frames) > 100:
                 # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
                 self.record_frames = []
@@ -215,7 +216,7 @@ class ChatClient:
     def stop_send_to_channel(self):
         logging.info("stop_send_to_channel")
         self.ChannelFlag = False
-        #self.cancel_channel(self.CurChannel)
+        # self.cancel_channel(self.CurChannel)
 
     # 将声音数据发送到客户端上 101
     def send_to_user(self, uid):
@@ -272,9 +273,9 @@ class ChatClient:
         while True:
             if len(self.play_frames) > 0:
                 pfs = self.play_frames.pop()
-                logging.info("play:{}".format(len(pfs)))
                 for pf in pfs:
                     self.playing_stream.write(pf)
+                    time.sleep(0.8 * self.chunk_size / self.rate)
 
     def getChannel(self):
         channel_id = random.choice(list(self.Channels.keys()))

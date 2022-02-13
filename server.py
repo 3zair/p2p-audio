@@ -5,7 +5,7 @@ import logging
 import mgo
 import threading
 
-VOICE_THUNK_SIZE = 1024
+VOICE_THUNK_SIZE = 512
 
 
 class ChatServer:

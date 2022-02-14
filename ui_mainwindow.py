@@ -1,7 +1,7 @@
 import logging
 import time
 
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMessageBox
 
 from client import ChatClient
 import socket
@@ -9,13 +9,10 @@ from PyQt5 import QtCore, QtWidgets
 
 
 class UIForm(object):
-    def __init__(self):
-        self.client = None
-        self.users = None
-        self.channels = None
 
     def setup_ui(self, main_form):
-        self.client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
+
+        self.client = ChatClient("10.100.6.109", 8002)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)
@@ -26,10 +23,7 @@ class UIForm(object):
         main_form.setMaximumSize(QtCore.QSize(1024, 768))
         main_form.setStyleSheet("background-color:rgb(179, 179, 179);")
 
-        # self._translate = QtCore.QCoreApplication.translate
         main_form.setWindowTitle("Form")
-
-        # 400, 0, 190, 120
 
         self.channel_frame_init(main_form)
         self.top_frame_init(main_form)
@@ -62,7 +56,8 @@ class UIForm(object):
             i += 1
 
             self.channel_push_buttons[channel_frame_name] = []
-            self.channel_push_buttons[channel_frame_name].append(QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
+            self.channel_push_buttons[channel_frame_name].append(
+                QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
             self.channel_push_buttons[channel_frame_name][0].setGeometry(QtCore.QRect(0, 0, 110, 120))
             self.channel_push_buttons[channel_frame_name][0].setMinimumSize(QtCore.QSize(110, 120))
             self.channel_push_buttons[channel_frame_name][0].setMaximumSize(QtCore.QSize(110, 120))
@@ -70,7 +65,8 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][0].setObjectName("pushButton_name_{}".format(channel_id))
             self.channel_push_buttons[channel_frame_name][0].setText("通道_{}".format(channel_id))
 
-            self.channel_push_buttons[channel_frame_name].append(QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
+            self.channel_push_buttons[channel_frame_name].append(
+                QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
             self.channel_push_buttons[channel_frame_name][1].setGeometry(QtCore.QRect(110, 0, 80, 60))
             self.channel_push_buttons[channel_frame_name][1].setMinimumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][1].setMaximumSize(QtCore.QSize(80, 60))
@@ -82,7 +78,8 @@ class UIForm(object):
                 self.channel_push_buttons[channel_frame_name][1].setChecked(True)
             self.channel_push_buttons[channel_frame_name][1].clicked.connect(self.channel_rx_click_handle)
 
-            self.channel_push_buttons[channel_frame_name].append(QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
+            self.channel_push_buttons[channel_frame_name].append(
+                QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
             self.channel_push_buttons[channel_frame_name][2].setGeometry(QtCore.QRect(110, 60, 80, 60))
             self.channel_push_buttons[channel_frame_name][2].setMinimumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][2].setMaximumSize(QtCore.QSize(80, 60))
@@ -91,65 +88,6 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][2].setObjectName(channel_id)
             self.channel_push_buttons[channel_frame_name][2].setText("TX")
             self.channel_push_buttons[channel_frame_name][2].clicked.connect(self.channel_tx_click_handle)
-
-            print(channel_id, self.channels[channel_id])
-
-    def channel_rx_click_handle(self):
-        rx_button = self.sender()
-        checked = rx_button.isChecked()
-        channel_id = rx_button.objectName()
-        if not checked and channel_id in self.client.user["listening_channels"]:
-            self.client.delListening_channel(channel_id)
-        if checked and channel_id not in self.client.user["listening_channels"]:
-            self.client.addListening_channel(channel_id)
-
-    def channel_tx_click_handle(self):
-        tx_button = self.sender()
-        checked = tx_button.isChecked()
-        channel_id = tx_button.objectName()
-        if checked:
-            # 检测当前是否占用其他某个信道
-            if self.client.CurChannel is not None:
-                i = 0
-                cur_channel = self.client.CurChannel
-                while True:
-                    cancel_ret = self.client.cancel_channel(cur_channel)
-                    if cancel_ret is True:
-                        self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setChecked(False)
-                        break
-                    time.sleep(1)
-                    i += 1
-                    if i > 5:
-                        # todo 弹窗
-                        self.client.CurChannel = cur_channel
-                        tx_button.setChecked(False)
-                        logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
-            # 去占用
-            ret = self.client.choose_channel(channel_id)
-            if ret is True:
-                self.client.start_record_voice_data()
-                self.client.start_send_to_channel()
-            else:
-                # todo 弹窗
-                tx_button.setChecked(False)
-                logging.error("choose_channel err: {}".format(ret))
-        else:
-            if self.client.CurChannel is not None:
-                i = 0
-                cur_channel = self.client.CurChannel
-                while True:
-                    cancel_ret = self.client.cancel_channel(cur_channel)
-                    if cancel_ret is True:
-                        self.client.stop_send_to_channel()
-                        self.client.stop_record_voice_data()
-                        break
-                    time.sleep(2)
-                    i += 1
-                    if i > 5:
-                        # todo 弹窗
-                        self.client.CurChannel = cur_channel
-                        tx_button.setChecked(True)
-                        logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
 
     def top_frame_init(self, main_form):
         # top frame
@@ -292,12 +230,78 @@ class UIForm(object):
         bottom_10.setMinimumSize(QtCore.QSize(98, 100))
         bottom_10.setMaximumSize(QtCore.QSize(98, 100))
         bottom_10.setStyleSheet("background-color:rgb(196, 255, 216);")
-        bottom_10.setObjectName("bottom_10")
+        bottom_10.setObjectName("exit")
+        bottom_10.clicked.connect(self.exit_click_handle)
         bottom_10.setText("退出")
 
     def user_frame_init(self, main_form):
+        # todo
         user_frame = QtWidgets.QFrame(main_form)
         user_frame.setGeometry(QtCore.QRect(600, 145, 400, 480))
         user_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         user_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         user_frame.setObjectName("user_frame")
+
+    def exit_click_handle(self):
+        reply = QMessageBox.question(self, '警告', "系统将退出，是否确认?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            QtCore.QCoreApplication.instance().quit()
+            self.client.exit()
+            del self.client
+
+    def channel_rx_click_handle(self):
+        rx_button = self.sender()
+        checked = rx_button.isChecked()
+        channel_id = rx_button.objectName()
+        if not checked and channel_id in self.client.user["listening_channels"]:
+            self.client.delListening_channel(channel_id)
+        if checked and channel_id not in self.client.user["listening_channels"]:
+            self.client.addListening_channel(channel_id)
+
+    def channel_tx_click_handle(self):
+        tx_button = self.sender()
+        checked = tx_button.isChecked()
+        channel_id = tx_button.objectName()
+        if checked:
+            # 检测当前是否占用其他某个信道
+            if self.client.CurChannel is not None:
+                i = 0
+                cur_channel = self.client.CurChannel
+                while True:
+                    cancel_ret = self.client.cancel_channel(cur_channel)
+                    if cancel_ret is True:
+                        self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setChecked(False)
+                        break
+                    time.sleep(1)
+                    i += 1
+                    if i > 5:
+                        # todo 弹窗
+                        self.client.CurChannel = cur_channel
+                        tx_button.setChecked(False)
+                        logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
+            # 去占用
+            ret = self.client.choose_channel(channel_id)
+            if ret is True:
+                self.client.start_record_voice_data()
+                self.client.start_send_to_channel()
+            else:
+                # todo 弹窗
+                tx_button.setChecked(False)
+                logging.error("choose_channel err: {}".format(ret))
+        else:
+            if self.client.CurChannel is not None:
+                i = 0
+                cur_channel = self.client.CurChannel
+                while True:
+                    cancel_ret = self.client.cancel_channel(cur_channel)
+                    if cancel_ret is True:
+                        self.client.stop_send_to_channel()
+                        self.client.stop_record_voice_data()
+                        break
+                    time.sleep(2)
+                    i += 1
+                    if i > 5:
+                        # todo 弹窗
+                        self.client.CurChannel = cur_channel
+                        tx_button.setChecked(True)
+                        logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))

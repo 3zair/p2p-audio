@@ -21,3 +21,7 @@ class MainWindow(QtWidgets.QWidget, UIForm):
 
     def online_edit_text_changed(self, p_str):
         self.Title.setText(p_str)
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        event.ignore()
+        self.exit_click_handle()

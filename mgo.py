@@ -3,7 +3,7 @@ import pymongo
 
 def getClients():
     myclient = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")
-    db = myclient["audio_home"]
+    db = myclient["whu_yjy"]
     col_user = db["user"]
     users = col_user.find()
     clients = {}
@@ -22,7 +22,7 @@ def getClients():
 
 def getChannels():
     myclient = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")
-    db = myclient["audio_home"]
+    db = myclient["whu_yjy"]
     col_channel = db["channel"]
     channel_ret = col_channel.find()
     channels = {}

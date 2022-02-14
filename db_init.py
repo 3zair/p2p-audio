@@ -51,20 +51,20 @@ import pymongo
 
 
 myclient = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")
-db = myclient["audio_yjy_2"]
+db = myclient["whu_yjy"]
 col_user = db["user"]
 col_channel = db["channel"]
-col_channel.insert_many([{"_id": "1", "port": 9001, "ip": "192.168.31.63"},
-                         {"_id": "2", "port": 9002, "ip": "192.168.31.63"},
-                         {"_id": "3", "port": 9003, "ip": "192.168.31.63"},
-                         {"_id": "4", "port": 9004, "ip": "192.168.31.63"},
-                         {"_id": "5", "port": 9005, "ip": "192.168.31.63"},
-                         {"_id": "6", "port": 9006, "ip": "192.168.31.63"},
-                         {"_id": "7", "port": 9007, "ip": "192.168.31.63"},
-                         {"_id": "8", "port": 9008, "ip": "192.168.31.63"}])
+col_channel.insert_many([{"_id": "1", "port": 9001, "ip": "192.168.1.112"},
+                         {"_id": "2", "port": 9002, "ip": "192.168.1.112"},
+                         {"_id": "3", "port": 9003, "ip": "192.168.1.112"},
+                         {"_id": "4", "port": 9004, "ip": "192.168.1.112"},
+                         {"_id": "5", "port": 9005, "ip": "192.168.1.112"},
+                         {"_id": "6", "port": 9006, "ip": "192.168.1.112"},
+                         {"_id": "7", "port": 9007, "ip": "192.168.1.112"},
+                         {"_id": "8", "port": 9008, "ip": "192.168.1.112"}])
 
 #
-col_user.insert_one({"name": "张1", "ip": "192.168.31.54", "level": 0, "port": 8001, "listening_channels": ["1"]})
-col_user.insert_one({"name": "张2", "ip": "192.168.31.63", "level": 1, "port": 8002, "listening_channels": []})
-col_user.insert_one({"name": "张3", "ip": "192.168.31.63", "level": 1, "port": 8003, "listening_channels": ["1"]})
-col_user.insert_one({"name": "张4", "ip": "192.168.31.63", "level": 1, "port": 8004, "listening_channels": ["2"]})
+col_user.insert_one({"name": "张1", "ip": "192.168.1.112", "level": 0, "port": 8002, "listening_channels": ["1"]})
+col_user.insert_one({"name": "张2", "ip": "192.168.1.114", "level": 1, "port": 8002, "listening_channels": []})
+# col_user.insert_one({"name": "张3", "ip": "192.168.31.63", "level": 1, "port": 8003, "listening_channels": ["1"]})
+# col_user.insert_one({"name": "张4", "ip": "192.168.31.63", "level": 1, "port": 8004, "listening_channels": ["2"]})

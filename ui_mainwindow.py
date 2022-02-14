@@ -1,21 +1,25 @@
 import logging
 import time
 
-from PyQt5.QtWidgets import QMainWindow
-
 from client import ChatClient
 import socket
 from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QSlider, QFormLayout
+from PyQt5.QtCore import Qt
 
 
 class UIForm(object):
     def __init__(self):
+        self.channel_push_buttons = {}
+        self.channel_frames = {}
         self.client = None
         self.users = None
         self.channels = None
+        self.volume = 50
 
     def setup_ui(self, main_form):
-        self.client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
+        # self.client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
+        self.client = ChatClient("192.168.1.112", 8002)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)
@@ -29,15 +33,31 @@ class UIForm(object):
         # self._translate = QtCore.QCoreApplication.translate
         main_form.setWindowTitle("Form")
 
-        # 400, 0, 190, 120
-
         self.channel_frame_init(main_form)
         self.top_frame_init(main_form)
         self.bottom_frame_init(main_form)
         self.user_frame_init(main_form)
+        self.value_change_frame_init(main_form)
 
         # self.retranslateUi(main_form)
         QtCore.QMetaObject.connectSlotsByName(main_form)
+
+    def change_volume(self, value):
+        self.volume = value
+
+    def value_change_frame_init(self, main_form):
+        value_change_frame = QtWidgets.QFrame(main_form)
+        value_change_frame.setGeometry(QtCore.QRect(930, 10, 50, 120))
+        value_change_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        value_change_frame.setFrameShadow(QtWidgets.QFrame.Raised)
+        value_change_frame.setObjectName("value_change_frame")
+
+        self.volume_slider = QSlider(value_change_frame)
+        self.volume_slider.setGeometry(QtCore.QRect(2, 2, 40, 100))
+        self.volume_slider.valueChanged.connect(self.change_volume)
+        self.volume_slider.setMaximum(32767)
+        self.volume_slider.setPageStep(1024)
+        self.volume_slider.valueChanged.connect(self.change_volume)
 
     def channel_frame_init(self, main_form):
         channels_frame = QtWidgets.QFrame(main_form)
@@ -47,8 +67,6 @@ class UIForm(object):
         channels_frame.setObjectName("channel_frame")
 
         i = 0
-        self.channel_frames = {}
-        self.channel_push_buttons = {}
         for channel_id in self.channels.keys():
             x = 0 + (i % 3) * 190
             y = 0 + int(i / 3) * 120
@@ -120,7 +138,7 @@ class UIForm(object):
                     time.sleep(1)
                     i += 1
                     if i > 5:
-                        # todo 弹窗
+                        self.show_error_message("取消占用通道{}失败".format(channel_id))
                         self.client.CurChannel = cur_channel
                         tx_button.setChecked(False)
                         logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
@@ -130,7 +148,7 @@ class UIForm(object):
                 self.client.start_record_voice_data()
                 self.client.start_send_to_channel()
             else:
-                # todo 弹窗
+                self.show_error_message("占用通道{}失败".format(channel_id))
                 tx_button.setChecked(False)
                 logging.error("choose_channel err: {}".format(ret))
         else:
@@ -146,7 +164,7 @@ class UIForm(object):
                     time.sleep(2)
                     i += 1
                     if i > 5:
-                        # todo 弹窗
+                        self.show_error_message("取消占用通道{}失败".format(channel_id))
                         self.client.CurChannel = cur_channel
                         tx_button.setChecked(True)
                         logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
@@ -154,7 +172,8 @@ class UIForm(object):
     def top_frame_init(self, main_form):
         # top frame
         top_frame = QtWidgets.QFrame(main_form)
-        top_frame.setGeometry(QtCore.QRect(20, 40, 980, 95))
+        # top_frame.setGeometry(QtCore.QRect(20, 40, 980, 95))
+        top_frame.setGeometry(QtCore.QRect(20, 40, 900, 95))
         top_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         top_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         top_frame.setObjectName("top_frame")
@@ -182,6 +201,7 @@ class UIForm(object):
         top_3.setStyleSheet("background-color:rgb(111, 255, 248);")
         top_3.setObjectName("top_3")
         top_3.setText("音量调节")
+        top_3.clicked.connect(self.show_message)
 
         top_4 = QtWidgets.QPushButton(top_frame)
         top_4.setGeometry(QtCore.QRect(294, 0, 98, 95))
@@ -301,3 +321,10 @@ class UIForm(object):
         user_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         user_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         user_frame.setObjectName("user_frame")
+
+    def show_message(self):
+        QMessageBox.information(self, "标题", "我很喜欢学习python",
+                                QMessageBox.Yes)
+
+    def show_error_message(self, err_msg):
+        QMessageBox.critical(self, "错误", err_msg)

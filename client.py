@@ -7,7 +7,6 @@ import my_udp
 import logging
 import json
 import pymongo
-import struct
 import random
 import pyaudio
 import time
@@ -15,7 +14,8 @@ import time
 
 class ChatClient:
     def __init__(self, ip, port):
-        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["whu_yjy"]
+        # db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["whu_yjy"]
+        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_office"]
         self.col_user = db["user"]
         self.col_channel = db["channel"]
         """
@@ -38,6 +38,7 @@ class ChatClient:
         self.ChannelFlag = False
         self.UserFlag = False
         self.VoiceRecordFlag = False
+        self.ExitFlag = False
 
         # 发消息
         self.CurClient = None  # 当前选择通话的用户
@@ -100,7 +101,7 @@ class ChatClient:
         channel_buffer, client_buffer = {}, {}
         channel_orders, client_orders = [], []
 
-        while True:
+        while not self.ExitFlag:
             try:
                 data, _server = self.s.recvfrom(1500)
                 msg = my_udp.udpMsg(msg=data)
@@ -148,6 +149,8 @@ class ChatClient:
             except Exception as e:
                 logging.error("receive_server_data err {}".format(e))
 
+        logging.info("stop receive_server_data.")
+
     # 请求占用channel
     def choose_channel(self, channel_id):
         logging.info("choose_channel {} {}".format(channel_id, self.user))
@@ -193,7 +196,7 @@ class ChatClient:
         recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                                        input=True,
                                        frames_per_buffer=self.chunk_size)
-        while self.VoiceRecordFlag:
+        while not self.ExitFlag and self.VoiceRecordFlag:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
             self.record_frames.append(data)
@@ -202,6 +205,7 @@ class ChatClient:
                 # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
                 self.record_frames = []
         recording_stream.close()
+        logging.info("stop send_voice_data.")
         return
 
     # 将声音数据发送到通道上 100
@@ -209,21 +213,17 @@ class ChatClient:
         logging.info("start_send_to_channel {}".format(self.CurChannel))
 
         self.ChannelFlag = True
-        t = threading.Thread(target=self.send_voice_data, args=("channel", self.CurChannel))
-        t.start()
+        threading.Thread(target=self.send_voice_data, args=("channel", self.CurChannel)).start()
 
     # 停止向当前的通道发送数据
     def stop_send_to_channel(self):
         logging.info("stop_send_to_channel")
         self.ChannelFlag = False
-        # self.cancel_channel(self.CurChannel)
 
     # 将声音数据发送到客户端上 101
     def send_to_user(self, uid):
         self.UserFlag = True
-        t = threading.Thread(target=self.send_voice_data, args=("user", uid))
-        t.setDaemon(True)
-        t.start()
+        threading.Thread(target=self.send_voice_data, args=("user", uid)).start()
 
     # 停止声音数据发送到客户端上 101
     def stop_send_to_user(self):
@@ -235,7 +235,7 @@ class ChatClient:
         # 发送到通道
         if type == "channel":
             num = 0
-            while self.ChannelFlag:
+            while not self.ExitFlag and self.ChannelFlag:
                 if len(self.record_frames) > 0:
                     try:
                         body = {"from": self.user["id"], "channel_id": to_id}
@@ -252,7 +252,7 @@ class ChatClient:
         # 发送给用户
         elif type == "user":
             num = 0
-            while self.UserFlag:
+            while not self.ExitFlag and self.UserFlag:
                 if len(self.record_frames) > 0:
                     try:
                         # TODO
@@ -267,15 +267,18 @@ class ChatClient:
                             num = 0
                     except Exception as e:
                         logging.error("send_data_to_user err: {}".format(e))
+        logging.info("stop send_voice_data.")
 
     # 播放声音
     def play(self):
-        while True:
+        while not self.ExitFlag:
             if len(self.play_frames) > 0:
                 pfs = self.play_frames.pop()
                 for pf in pfs:
                     self.playing_stream.write(pf)
                     time.sleep(0.8 * self.chunk_size / self.rate)
+        self.playing_stream.close()
+        logging.info("stop play.")
 
     def getChannel(self):
         channel_id = random.choice(list(self.Channels.keys()))
@@ -315,11 +318,6 @@ class ChatClient:
 
         return
 
-# logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
-# ret = client.choose_channel("1")
-# if not ret:
-#     logging.error("choose_channel err:{}".format(ret))
-#
-# client.start_record_voice_data()
-# client.start_send_to_channel("1")
+    def exit(self):
+        self.ExitFlag = True
+        self.s.close()

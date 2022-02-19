@@ -24,7 +24,7 @@ class UIForm(object):
 
     def setup_ui(self, main_form):
 
-        self.client = ChatClient("10.100.6.109", 8002)
+        self.client = ChatClient("192.168.31.54", 8002)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)
@@ -118,63 +118,6 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][2].clicked.connect(self.channel_tx_click_handle)
 
             print(channel_id, self.channels[channel_id])
-
-    def channel_rx_click_handle(self):
-        rx_button = self.sender()
-        checked = rx_button.isChecked()
-        channel_id = rx_button.objectName()
-        if not checked and channel_id in self.client.user["listening_channels"]:
-            self.client.delListening_channel(channel_id)
-        if checked and channel_id not in self.client.user["listening_channels"]:
-            self.client.addListening_channel(channel_id)
-
-    def channel_tx_click_handle(self):
-        tx_button = self.sender()
-        checked = tx_button.isChecked()
-        channel_id = tx_button.objectName()
-        if checked:
-            # 检测当前是否占用其他某个信道
-            if self.client.CurChannel is not None:
-                i = 0
-                cur_channel = self.client.CurChannel
-                while True:
-                    cancel_ret = self.client.cancel_channel(cur_channel)
-                    if cancel_ret is True:
-                        self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setChecked(False)
-                        break
-                    time.sleep(1)
-                    i += 1
-                    if i > 5:
-                        self.show_error_message("取消占用通道{}失败".format(channel_id))
-                        self.client.CurChannel = cur_channel
-                        tx_button.setChecked(False)
-                        logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
-            # 去占用
-            ret = self.client.choose_channel(channel_id)
-            if ret is True:
-                self.client.start_record_voice_data()
-                self.client.start_send_to_channel()
-            else:
-                self.show_error_message("占用通道{}失败".format(channel_id))
-                tx_button.setChecked(False)
-                logging.error("choose_channel err: {}".format(ret))
-        else:
-            if self.client.CurChannel is not None:
-                i = 0
-                cur_channel = self.client.CurChannel
-                while True:
-                    cancel_ret = self.client.cancel_channel(cur_channel)
-                    if cancel_ret is True:
-                        self.client.stop_send_to_channel()
-                        self.client.stop_record_voice_data()
-                        break
-                    time.sleep(2)
-                    i += 1
-                    if i > 5:
-                        self.show_error_message("取消占用通道{}失败".format(channel_id))
-                        self.client.CurChannel = cur_channel
-                        tx_button.setChecked(True)
-                        logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
 
     def top_frame_init(self, main_form):
         # top frame
@@ -350,54 +293,77 @@ class UIForm(object):
         checked = rx_button.isChecked()
         channel_id = rx_button.objectName()
         if not checked and channel_id in self.client.user["listening_channels"]:
-            self.client.delListening_channel(channel_id)
+            self.client.del_listening_channel(channel_id)
+            # 取消
+            tx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][2]
+            tx_checked = tx_button.isChecked()
+            if tx_checked:
+                if self.client.CurChannel is not None and self.client.CurChannel == channel_id:
+                    ret = self.cancel_occupy_channel(channel_id)
+                    if ret is True:
+                        self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setChecked(False)
+                    else:
+                        self.client.CurChannel = channel_id
+                        logging.error("取消占用channel {} err: {}".format(channel_id, ret))
+                        self.show_error_message("通道{}释放失败".format(channel_id))
+
         if checked and channel_id not in self.client.user["listening_channels"]:
-            self.client.addListening_channel(channel_id)
+            self.client.add_listening_channel(channel_id)
 
     def channel_tx_click_handle(self):
         tx_button = self.sender()
         checked = tx_button.isChecked()
         channel_id = tx_button.objectName()
         if checked:
+            # 开始占用通道 channel_id
             # 检测当前是否占用其他某个信道
+            cur_channel = self.client.CurChannel
             if self.client.CurChannel is not None:
-                i = 0
-                cur_channel = self.client.CurChannel
-                while True:
-                    cancel_ret = self.client.cancel_channel(cur_channel)
-                    if cancel_ret is True:
-                        self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setChecked(False)
-                        break
-                    time.sleep(1)
-                    i += 1
-                    if i > 5:
-                        # todo 弹窗
-                        self.client.CurChannel = cur_channel
-                        tx_button.setChecked(False)
-                        logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
+                ret = self.cancel_occupy_channel(cur_channel)
+                if ret is True:
+                    self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setChecked(False)
+                else:
+                    # 当前占用的通道取消失败
+                    self.client.CurChannel = cur_channel
+                    tx_button.setChecked(False)
+                    logging.error("释放channel {} err: {}".format(cur_channel, ret))
+                    self.show_error_message("通道{}释放失败".format(cur_channel))
+
             # 去占用
             ret = self.client.choose_channel(channel_id)
             if ret is True:
                 self.client.start_record_voice_data()
                 self.client.start_send_to_channel()
+                # 监听当前通道
+                rx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][1]
+                checked = rx_button.isChecked()
+                if channel_id not in self.client.user["listening_channels"]:
+                    self.client.add_listening_channel(channel_id)
+                if not checked:
+                    self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setChecked(True)
             else:
-                # todo 弹窗
                 tx_button.setChecked(False)
                 logging.error("choose_channel err: {}".format(ret))
+                self.show_error_message("通道{}占用失败".format(channel_id))
         else:
+            # 取消占用通道 channel_id
             if self.client.CurChannel is not None:
-                i = 0
-                cur_channel = self.client.CurChannel
-                while True:
-                    cancel_ret = self.client.cancel_channel(cur_channel)
-                    if cancel_ret is True:
-                        self.client.stop_send_to_channel()
-                        self.client.stop_record_voice_data()
-                        break
-                    time.sleep(2)
-                    i += 1
-                    if i > 5:
-                        # todo 弹窗
-                        self.client.CurChannel = cur_channel
-                        tx_button.setChecked(True)
-                        logging.error("取消占用channel {} err: {}".format(channel_id, cancel_ret))
+                ret = self.cancel_occupy_channel(channel_id)
+                if ret is True:
+                    self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setChecked(False)
+                else:
+                    # 当前占用的通道取消失败
+                    self.client.CurChannel = channel_id
+                    tx_button.setChecked(True)
+                    logging.error("取消占用channel {} err: {}".format(channel_id, ret))
+                    self.show_error_message("通道{}释放失败".format(channel_id))
+
+    def cancel_occupy_channel(self, channel_id, retry=3):
+        cancel_ret = self.client.cancel_channel(channel_id)
+        i = 0
+        while cancel_ret is not True and i < retry:
+            time.sleep(1)
+            if cancel_ret is True:
+                return True
+            i += 1
+        return cancel_ret

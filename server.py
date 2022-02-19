@@ -30,8 +30,8 @@ class ChatServer:
             # 接收来自客户端的数据,使用recv from
             data, addr = s.recvfrom(2048)
             msg = my_udp.udpMsg(msg=data)
-            # logging.info("receive from {}, type:{} num: {} body:{}"
-            #              .format(addr, msg.msgType, msg.msgNum, msg.getBody()))
+            logging.info("receive from {}, type:{} num: {} body:{}"
+                         .format(addr, msg.msgType, msg.msgNum, msg.getBody()))
 
             if msg.msgType in [100, 101]:
                 for uid in clients.keys():

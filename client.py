@@ -12,12 +12,41 @@ import pyaudio
 import time
 
 
+def init_devices():
+    devices = {
+        "inputs": {},
+        "pc_outputs": {},
+        "usb_outputs": {}
+    }
+    p = pyaudio.PyAudio()
+    info = p.get_host_api_info_by_index(0)
+    num_devices = info.get('deviceCount')
+    for i in range(0, num_devices):
+        max_input_channels = p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')
+        max_output_channels = p.get_device_info_by_host_api_device_index(0, i).get('maxOutputChannels')
+        name = p.get_device_info_by_host_api_device_index(0, i).get('name')
+        if max_input_channels > 0:
+            print("input device id ", i, "-", name)
+            devices["inputs"][i] = name
+        if max_output_channels > 0:
+            if name.find("USB"):
+                print("usb output device id ", i, "-", name)
+                devices["pc_outputs"][i] = name
+            else:
+                print("pc output device id ", i, "-", name)
+                devices["usb_outputs"][i] = name
+    return devices
+
+
 class ChatClient:
     def __init__(self, ip, port):
         # db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["whu_yjy"]
-        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_office"]
+        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_win"]
         self.col_user = db["user"]
         self.col_channel = db["channel"]
+
+        self.devices = init_devices()
+        logging.info("devices:{}".format(self.devices))
         """
         当前用户的信息
         keys：
@@ -156,7 +185,7 @@ class ChatClient:
         logging.info("choose_channel {} {}".format(channel_id, self.user))
         msg = my_udp.udpMsg(msgType=200,
                             body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
-        self.s.sendto(msg.getMsg(), self.getChannel())
+        self.s.sendto(msg.getMsg(), self.get_channel())
         t = time.time()
         while self.CurChannel != channel_id:
             if time.time() - t > 1:
@@ -170,12 +199,14 @@ class ChatClient:
         logging.info("cancel_channel {}".format(channel_id))
         msg = my_udp.udpMsg(msgType=201,
                             body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
-        self.s.sendto(msg.getMsg(), self.getChannel())
+        self.s.sendto(msg.getMsg(), self.get_channel())
         t = time.time()
         while self.CurChannel is not None:
             if time.time() - t > 1:
                 return "Time out"
         self.ChannelFlag = False
+        self.stop_send_to_channel()
+        self.stop_record_voice_data()
         return True
 
     # 开始收取声音数据
@@ -280,41 +311,42 @@ class ChatClient:
         self.playing_stream.close()
         logging.info("stop play.")
 
-    def getChannel(self):
+    def get_channel(self):
         channel_id = random.choice(list(self.Channels.keys()))
         return self.Channels[channel_id]["ip"], self.Channels[channel_id]["port"]
 
     # 设置使用的信道
-    def setCurChannel(self, channel_id):
+    def set_cur_channel(self, channel_id):
         logging.info("")
         self.CurChannel = channel_id
         return
 
     # 开始听某个客户端的消息
-    def addListening_client(self, uid):
+    def add_listening_client(self, uid):
         self.user["listening_clients"].append(uid)
-        self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$addToSet": {"listening_clients": uid}})
+        # self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$addToSet": {"listening_clients": uid}})
         return
 
-    def delListening_client(self, uid):
+    def del_listening_client(self, uid):
         self.user["listening_clients"].remove(uid)
-        self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$pull": {"listening_clients": uid}})
+        # self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$pull": {"listening_clients": uid}})
 
         return
 
     # 开始监听某个channel
-    def addListening_channel(self, channel_id):
+    def add_listening_channel(self, channel_id):
         logging.info("addListening_channel {}".format(channel_id))
         self.user["listening_channels"].append(channel_id)
-        self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])},
-                                 {"$addToSet": {"listening_channels": channel_id}})
+        # self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])},
+        #                          {"$addToSet": {"listening_channels": channel_id}})
 
         return
 
-    def delListening_channel(self, channel_id):
+    def del_listening_channel(self, channel_id):
         logging.info("delListening_channel {}".format(channel_id))
         self.user["listening_channels"].remove(channel_id)
-        self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$pull": {"listening_channels": channel_id}})
+        # self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$pull": {"listening_channels":
+        # channel_id}})
 
         return
 

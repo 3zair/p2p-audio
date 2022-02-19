@@ -7,11 +7,6 @@ class MainWindow(QtWidgets.QWidget, UIForm):
         super(MainWindow, self).__init__(parent)
         self.setup_ui(self)
 
-        # self.Title.setText("hello Python")
-        # self.World.clicked.connect(self.on_world_clicked())
-        # self.China.clicked.connect(self.on_china_clicked())
-        # self.lineEdit.textChanged.connect(self.online_edit_text_changed())
-
     def on_world_clicked(self, remark):
         print(remark)
         self.Title.setText("Hello World")

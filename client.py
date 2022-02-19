@@ -14,8 +14,8 @@ import time
 
 class ChatClient:
     def __init__(self, ip, port):
-        # db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["whu_yjy"]
-        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_office"]
+        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_win"]
+        # db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_office"]
         self.col_user = db["user"]
         self.col_channel = db["channel"]
         """

@@ -5,8 +5,46 @@ from PyQt5.QtWidgets import QMessageBox
 from client import ChatClient
 import socket
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QSlider, QFormLayout
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QSlider, QFormLayout, QDialog
 from PyQt5.QtCore import Qt
+
+
+class ChildWindow(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowFlags(Qt.FramelessWindowHint)
+        # self.setWindowFlags(Qt.WindowCloseButtonHint)
+        self.setWindowTitle('子窗口')
+        self.resize(280, 230)
+
+        self.change_device_btn()
+        self.exit_btn()
+
+    def change_device_btn(self):
+        change_btn = QtWidgets.QPushButton(self)
+        change_btn.setGeometry(QtCore.QRect(30, 30, 100, 100))
+        change_btn.setMinimumSize(QtCore.QSize(100, 100))
+        change_btn.setMaximumSize(QtCore.QSize(100, 100))
+        change_btn.setCheckable(True)
+        change_btn.setStyleSheet("background-color:rgb(111, 255, 248);")
+        change_btn.setObjectName("change_btn")
+        change_btn.setText("change_device")
+
+    def exit_btn(self):
+        ex_btn = QtWidgets.QPushButton(self)
+        ex_btn.setGeometry(QtCore.QRect(150, 130, 100, 100))
+        ex_btn.setMinimumSize(QtCore.QSize(100, 100))
+        ex_btn.setMaximumSize(QtCore.QSize(100, 100))
+        ex_btn.setStyleSheet("background-color:rgb(111, 255, 248);")
+        ex_btn.setObjectName("ex_btn")
+        ex_btn.setText("exit")
+        ex_btn.clicked.connect(self.exit)
+
+    def exit(self):
+        self.close()
 
 
 class UIForm(object):
@@ -23,7 +61,6 @@ class UIForm(object):
     #     self.client = ChatClient("192.168.1.112", 8002)
 
     def setup_ui(self, main_form):
-
         self.client = ChatClient("192.168.31.54", 8002)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
@@ -63,6 +100,11 @@ class UIForm(object):
         self.volume_slider.setPageStep(1024)
         self.volume_slider.valueChanged.connect(self.change_volume)
 
+    def btnClicked(self):
+        self.chile_Win = ChildWindow()
+        self.chile_Win.show()
+        self.chile_Win.exec_()
+
     def channel_frame_init(self, main_form):
         channels_frame = QtWidgets.QFrame(main_form)
         channels_frame.setGeometry(QtCore.QRect(20, 145, 570, 480))
@@ -92,6 +134,7 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][0].setStyleSheet("background-color:rgb(245, 245, 245);")
             self.channel_push_buttons[channel_frame_name][0].setObjectName("pushButton_name_{}".format(channel_id))
             self.channel_push_buttons[channel_frame_name][0].setText("通道_{}".format(channel_id))
+            self.channel_push_buttons[channel_frame_name][0].clicked.connect(self.btnClicked)
 
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))

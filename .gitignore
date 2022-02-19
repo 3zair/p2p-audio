@@ -3,3 +3,4 @@
 temp/test.py
 .DS_Store
 /temp
+*.wav

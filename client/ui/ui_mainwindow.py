@@ -5,44 +5,45 @@ from udpClient.client import ChatClient
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog
 from PyQt5.QtCore import Qt
+from .ui_subwindow import UiForm2
 
 
-class ChildWindow(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
-
-    def initUI(self):
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        # self.setWindowFlags(Qt.WindowCloseButtonHint)
-        self.setWindowTitle('子窗口')
-        self.resize(280, 230)
-
-        self.change_device_btn()
-        self.exit_btn()
-
-    def change_device_btn(self):
-        change_btn = QtWidgets.QPushButton(self)
-        change_btn.setGeometry(QtCore.QRect(30, 30, 100, 100))
-        change_btn.setMinimumSize(QtCore.QSize(100, 100))
-        change_btn.setMaximumSize(QtCore.QSize(100, 100))
-        change_btn.setCheckable(True)
-        change_btn.setStyleSheet("background-color:rgb(111, 255, 248);")
-        change_btn.setObjectName("change_btn")
-        change_btn.setText("change_device")
-
-    def exit_btn(self):
-        ex_btn = QtWidgets.QPushButton(self)
-        ex_btn.setGeometry(QtCore.QRect(150, 130, 100, 100))
-        ex_btn.setMinimumSize(QtCore.QSize(100, 100))
-        ex_btn.setMaximumSize(QtCore.QSize(100, 100))
-        ex_btn.setStyleSheet("background-color:rgb(111, 255, 248);")
-        ex_btn.setObjectName("ex_btn")
-        ex_btn.setText("exit")
-        ex_btn.clicked.connect(self.exit)
-
-    def exit(self):
-        self.close()
+# class ChildWindow(QDialog):
+#     def __init__(self):
+#         super().__init__()
+#         self.initUI()
+#
+#     def initUI(self):
+#         self.setWindowFlags(Qt.FramelessWindowHint)
+#         # self.setWindowFlags(Qt.WindowCloseButtonHint)
+#         self.setWindowTitle('子窗口')
+#         self.resize(280, 230)
+#
+#         self.change_device_btn()
+#         self.exit_btn()
+#
+#     def change_device_btn(self):
+#         change_btn = QtWidgets.QPushButton(self)
+#         change_btn.setGeometry(QtCore.QRect(30, 30, 100, 100))
+#         change_btn.setMinimumSize(QtCore.QSize(100, 100))
+#         change_btn.setMaximumSize(QtCore.QSize(100, 100))
+#         change_btn.setCheckable(True)
+#         change_btn.setStyleSheet("background-color:rgb(111, 255, 248);")
+#         change_btn.setObjectName("change_btn")
+#         change_btn.setText("change_device")
+#
+#     def exit_btn(self):
+#         ex_btn = QtWidgets.QPushButton(self)
+#         ex_btn.setGeometry(QtCore.QRect(150, 130, 100, 100))
+#         ex_btn.setMinimumSize(QtCore.QSize(100, 100))
+#         ex_btn.setMaximumSize(QtCore.QSize(100, 100))
+#         ex_btn.setStyleSheet("background-color:rgb(111, 255, 248);")
+#         ex_btn.setObjectName("ex_btn")
+#         ex_btn.setText("exit")
+#         ex_btn.clicked.connect(self.exit)
+#
+#     def exit(self):
+#         self.close()
 
 
 class UIForm(object):
@@ -99,7 +100,7 @@ class UIForm(object):
         self.volume_slider.valueChanged.connect(self.change_volume)
 
     def btnClicked(self):
-        self.chile_Win = ChildWindow()
+        self.chile_Win = UiForm2()
         self.chile_Win.show()
         self.chile_Win.exec_()
 

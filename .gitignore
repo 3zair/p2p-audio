@@ -1,6 +1,6 @@
 /.idea
 /__pycache__/
-temp/test.py
+test.py
 .DS_Store
 /temp
 *.wav

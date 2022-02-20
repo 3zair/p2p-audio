@@ -1,11 +1,9 @@
 import logging
 import time
-from PyQt5.QtWidgets import QMessageBox
 
-from client import ChatClient
-import socket
+from udpClient.client import ChatClient
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QSlider, QFormLayout, QDialog
+from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog
 from PyQt5.QtCore import Qt
 
 
@@ -61,7 +59,7 @@ class UIForm(object):
     #     self.client = ChatClient("192.168.1.112", 8002)
 
     def setup_ui(self, main_form):
-        self.client = ChatClient("192.168.31.54", 8002)
+        self.client = ChatClient("127.0.0.1", 8001)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)
@@ -145,8 +143,6 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][1].setCheckable(True)
             self.channel_push_buttons[channel_frame_name][1].setObjectName(channel_id)
             self.channel_push_buttons[channel_frame_name][1].setText("RX")
-            if channel_id in self.client.user["listening_channels"]:
-                self.channel_push_buttons[channel_frame_name][1].setChecked(True)
             self.channel_push_buttons[channel_frame_name][1].clicked.connect(self.channel_rx_click_handle)
 
             self.channel_push_buttons[channel_frame_name].append(

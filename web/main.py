@@ -1,6 +1,6 @@
 # 暂时没用
 from flask import Flask, request, jsonify
-import mgo
+from common import mgo
 
 app = Flask(__name__)
 
@@ -50,8 +50,6 @@ if __name__ == '__main__':
 
 import pyaudio
 import wave
-import threading
-from threading import Thread
 
 p = pyaudio.PyAudio()
 info = p.get_host_api_info_by_index(0)

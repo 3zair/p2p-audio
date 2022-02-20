@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from ui_mainwindow import UIForm
+from .ui_mainwindow import UIForm
 
 
 class MainWindow(QtWidgets.QWidget, UIForm):

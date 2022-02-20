@@ -1,8 +1,8 @@
 import logging
-
-from PyQt5 import QtCore, QtGui, QtWidgets
-from mainwindow import MainWindow
 import sys
+
+from PyQt5 import QtWidgets
+from ui.mainwindow import MainWindow
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

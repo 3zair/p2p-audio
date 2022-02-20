@@ -1,15 +1,13 @@
 import socket
 import threading
-
-import bson
-
-import my_udp
 import logging
 import json
-import pymongo
 import random
 import pyaudio
 import time
+
+from .my_udp import UdpMsg
+from common.mgo import mgo_client
 
 
 def init_devices():
@@ -40,8 +38,7 @@ def init_devices():
 
 class ChatClient:
     def __init__(self, ip, port):
-        # db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["whu_yjy"]
-        db = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")["audio_win"]
+        db = mgo_client
         self.col_user = db["user"]
         self.col_channel = db["channel"]
 
@@ -108,8 +105,8 @@ class ChatClient:
                 self.user["name"] = u["name"]
                 self.user["id"] = str(u["_id"])
                 self.user["level"] = u["level"]
-                self.user["listening_channels"] = [] if "listening_channels" not in u else u["listening_channels"][:]
-                self.user["listening_clients"] = [] if "listening_clients" not in u else u["listening_clients"][:]
+                self.user["listening_channels"] = []
+                self.user["listening_clients"] = []
             else:
                 self.ClientsInfo[str(u["_id"])] = {
                     "name": u["name"],
@@ -133,7 +130,7 @@ class ChatClient:
         while not self.ExitFlag:
             try:
                 data, _server = self.s.recvfrom(1500)
-                msg = my_udp.udpMsg(msg=data)
+                msg = UdpMsg(msg=data)
                 msg_body = json.loads(msg.getBody())
 
                 # 占用通道请求的结果
@@ -183,8 +180,8 @@ class ChatClient:
     # 请求占用channel
     def choose_channel(self, channel_id):
         logging.info("choose_channel {} {}".format(channel_id, self.user))
-        msg = my_udp.udpMsg(msgType=200,
-                            body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
+        msg = UdpMsg(msgType=200,
+                     body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
         self.s.sendto(msg.getMsg(), self.get_channel())
         t = time.time()
         while self.CurChannel != channel_id:
@@ -197,8 +194,8 @@ class ChatClient:
     # 取消占用channel
     def cancel_channel(self, channel_id):
         logging.info("cancel_channel {}".format(channel_id))
-        msg = my_udp.udpMsg(msgType=201,
-                            body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
+        msg = UdpMsg(msgType=201,
+                     body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
         self.s.sendto(msg.getMsg(), self.get_channel())
         t = time.time()
         while self.CurChannel is not None:
@@ -270,8 +267,8 @@ class ChatClient:
                 if len(self.record_frames) > 0:
                     try:
                         body = {"from": self.user["id"], "channel_id": to_id}
-                        msg = my_udp.udpMsg(msgType=100, num=num, body=json.dumps(body),
-                                            voiceData=self.record_frames.pop())
+                        msg = UdpMsg(msgType=100, num=num, body=json.dumps(body),
+                                     voiceData=self.record_frames.pop())
                         self.s.sendto(msg.getMsg(),
                                       (self.Channels[to_id]["ip"], self.Channels[to_id]["port"]))
                         num += 1
@@ -288,8 +285,8 @@ class ChatClient:
                     try:
                         # TODO
                         body = {"from": self.user["id"]}
-                        msg = my_udp.udpMsg(msgType=101, num=num, body=json.dumps(body),
-                                            voiceData=self.record_frames.pop())
+                        msg = UdpMsg(msgType=101, num=num, body=json.dumps(body),
+                                     voiceData=self.record_frames.pop())
                         self.s.sendto(msg.getMsg(),
                                       (self.ClientsInfo[to_id]["ip"], self.ClientsInfo[to_id]["port"]))
                         num += 1
@@ -324,12 +321,10 @@ class ChatClient:
     # 开始听某个客户端的消息
     def add_listening_client(self, uid):
         self.user["listening_clients"].append(uid)
-        # self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$addToSet": {"listening_clients": uid}})
         return
 
     def del_listening_client(self, uid):
         self.user["listening_clients"].remove(uid)
-        # self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$pull": {"listening_clients": uid}})
 
         return
 
@@ -337,16 +332,12 @@ class ChatClient:
     def add_listening_channel(self, channel_id):
         logging.info("addListening_channel {}".format(channel_id))
         self.user["listening_channels"].append(channel_id)
-        # self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])},
-        #                          {"$addToSet": {"listening_channels": channel_id}})
 
         return
 
     def del_listening_channel(self, channel_id):
         logging.info("delListening_channel {}".format(channel_id))
         self.user["listening_channels"].remove(channel_id)
-        # self.col_user.update_one({"_id": bson.ObjectId(self.user["id"])}, {"$pull": {"listening_channels":
-        # channel_id}})
 
         return
 

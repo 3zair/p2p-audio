@@ -15,7 +15,7 @@ import time
 HeaderSize = 12
 
 
-class udpMsg:
+class UdpMsg:
     def __init__(self, msgType=None, num=0, body="", voiceDataLen=1024, voiceData="", msg=None):
         if msg is None:
             if msgType not in [100, 101, 200,201]:

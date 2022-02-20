@@ -1,6 +1,4 @@
-
 PyAudio==0.2.11
-pymongo~=4.0.1
+pymongo==4.0.1
 PyQt5==5.15.6
-
-pyserial~=3.5
+pyserial==3.5

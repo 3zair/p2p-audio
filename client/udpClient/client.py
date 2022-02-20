@@ -5,16 +5,17 @@ import json
 import random
 import pyaudio
 import time
+import serial
 
 from .my_udp import UdpMsg
-from common.mgo import mgo_client
+from common.mgo import col_user, col_channel
 
 
 def init_devices():
     devices = {
-        "inputs": {},
-        "pc_outputs": {},
-        "usb_outputs": {}
+        "inputs": [],
+        "pc_outputs": [],
+        "usb_outputs": []
     }
     p = pyaudio.PyAudio()
     info = p.get_host_api_info_by_index(0)
@@ -25,25 +26,22 @@ def init_devices():
         name = p.get_device_info_by_host_api_device_index(0, i).get('name')
         if max_input_channels > 0:
             print("input device id ", i, "-", name)
-            devices["inputs"][i] = name
+            devices["inputs"].append(i)
         if max_output_channels > 0:
-            if name.find("USB"):
+            if name.find("USB") >= 0:
                 print("usb output device id ", i, "-", name)
-                devices["pc_outputs"][i] = name
+                devices["usb_outputs"].append(i)
             else:
                 print("pc output device id ", i, "-", name)
-                devices["usb_outputs"][i] = name
+                devices["pc_outputs"].append(i)
     return devices
 
 
 class ChatClient:
     def __init__(self, ip, port):
-        db = mgo_client
-        self.col_user = db["user"]
-        self.col_channel = db["channel"]
+        self.col_user = col_user
+        self.col_channel = col_channel
 
-        self.devices = init_devices()
-        logging.info("devices:{}".format(self.devices))
         """
         当前用户的信息
         keys：
@@ -77,6 +75,16 @@ class ChatClient:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.s.bind((self.user["ip"], self.user["port"]))
 
+        # 输入输出设备信息初始化
+        self.devices = init_devices()
+        logging.info("devices:{}".format(self.devices))
+
+        # play_streams
+        self.playing_streams = {
+            "pc": [],
+            "usb": [],
+        }
+        # audio conf
         self.p = pyaudio.PyAudio()
         self.chunk_size = 512  # 512
         self.audio_format = pyaudio.paInt16
@@ -84,14 +92,30 @@ class ChatClient:
         self.rate = 16000
         self.RECORD_SECONDS = 10
         self.WAVE_OUTPUT_FILENAME = "output"
-        # start threads
-        threading.Thread(target=self.receive_server_data).start()
-        self.playing_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                                          output=True,
-                                          frames_per_buffer=self.chunk_size)
+        for pc_op_id in self.devices["pc_outputs"]:
+            self.playing_streams["pc"].append(
+                self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                            output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
+        for pc_op_id in self.devices["usb_outputs"]:
+            self.playing_streams["usb"].append(
+                self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                            output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
+
         self.record_frames = []
         self.play_frames = []
 
+        # 脚踏板控制器
+        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        self.ser.setPort("COM3")
+        self.ser.dtr = True
+        #self.ser.open()
+
+        # 使用自带的pc设备播放音频
+        self.pc_output_play = False
+
+        # 接收udp消息
+        threading.Thread(target=self.receive_server_data).start()
+        # 处理udp语音消息
         threading.Thread(target=self.play).start()
 
     def Init(self, ip, port):
@@ -207,23 +231,24 @@ class ChatClient:
         return True
 
     # 开始收取声音数据
-    def start_record_voice_data(self):
+    def start_record_voice_data(self, device_id=-1):
         logging.info("start_record_voice_data")
         self.VoiceRecordFlag = True
-        t = threading.Thread(target=self.record_voice_data)
-        t.start()
+        t = threading.Thread(target=self.record_voice_data, args=(device_id,)).start()
 
     # 停止收取声音数据
     def stop_record_voice_data(self):
         logging.info("stop_record_voice_data")
-
         self.VoiceRecordFlag = False
 
     # 收取声音数据
-    def record_voice_data(self):
-        recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                                       input=True,
-                                       frames_per_buffer=self.chunk_size)
+    def record_voice_data(self, device_id):
+        if device_id < 0:
+            recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                                           input=True, frames_per_buffer=self.chunk_size)
+        else:
+            recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                                           input=True, frames_per_buffer=self.chunk_size, output_device_index=device_id)
         while not self.ExitFlag and self.VoiceRecordFlag:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
@@ -303,9 +328,20 @@ class ChatClient:
             if len(self.play_frames) > 0:
                 pfs = self.play_frames.pop()
                 for pf in pfs:
-                    self.playing_stream.write(pf)
+                    if self.pc_output_play:
+                        # 系统默认的播放器播放
+                        for pls in self.playing_streams["pc"]:
+                            pls.write(pf)
+                    else:
+                        # usb耳机的播放器播放
+                        for pls in self.playing_streams["usb"]:
+                            pls.write(pf)
                     time.sleep(0.8 * self.chunk_size / self.rate)
-        self.playing_stream.close()
+
+        for pls in self.playing_streams["pc"]:
+            pls.close()
+        for pls in self.playing_streams["usb"]:
+            pls.close()
         logging.info("stop play.")
 
     def get_channel(self):

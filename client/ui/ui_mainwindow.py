@@ -371,7 +371,6 @@ class UIForm(object):
             # 去占用
             ret = self.client.choose_channel(channel_id)
             if ret is True:
-                self.client.start_record_voice_data()
                 self.client.start_send_to_channel()
                 # 监听当前通道
                 rx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][1]
@@ -406,3 +405,29 @@ class UIForm(object):
                 return True
             i += 1
         return cancel_ret
+
+    def micro_phone_control(self):
+        while True:
+            print(" DTR:", self.client.ser.dtr, " CD:", self.client.ser.cd, " DSR:", self.client.ser.dsr, " CTS:",
+                  self.client.ser.cts)
+            # level 1
+            if self.client.ser.cd:
+                if len(self.client.devices["inputs"]) <= 1:
+                    self.show_error_message("请插入输入设备1(CD)")
+                else:
+                    self.client.start_record_voice_data(self.client.devices["inputs"][0])
+
+            # level 2
+            if self.client.ser.dsr:
+                if len(self.client.devices["inputs"]) <= 2:
+                    self.show_error_message("请插入输入设备2(DSR)")
+                else:
+                    self.client.start_record_voice_data(self.client.devices["inputs"][1])
+
+            # level 3
+            if self.client.ser.cts:
+                if len(self.client.devices["inputs"]) <= 3:
+                    self.show_error_message("请插入输入设备3(CTS)")
+                else:
+                    self.client.start_record_voice_data(self.client.devices["inputs"][2])
+            time.sleep(0.22)

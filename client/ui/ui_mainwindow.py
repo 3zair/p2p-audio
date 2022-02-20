@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 
 from udpClient.client import ChatClient
@@ -22,7 +23,7 @@ class UIForm(object):
     #     self.client = ChatClient("192.168.1.112", 8002)
 
     def setup_ui(self, main_form):
-        self.client = ChatClient("127.0.0.1", 8001)
+        self.client = ChatClient("192.168.31.54", 8001)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)
@@ -43,6 +44,7 @@ class UIForm(object):
 
         # self.retranslateUi(main_form)
         QtCore.QMetaObject.connectSlotsByName(main_form)
+        threading.Thread(target=self.micro_phone_control).start()
 
     def change_volume(self, value):
         self.volume = value
@@ -373,27 +375,34 @@ class UIForm(object):
         return cancel_ret
 
     def micro_phone_control(self):
-        while True:
+        while self.client and not self.client.ExitFlag:
             print(" DTR:", self.client.ser.dtr, " CD:", self.client.ser.cd, " DSR:", self.client.ser.dsr, " CTS:",
                   self.client.ser.cts)
             # level 1
-            if self.client.ser.cd:
+            if self.client.ser.cd and not self.client.input_device_flags[self.client.devices["inputs"][0]]:
                 if len(self.client.devices["inputs"]) <= 1:
                     self.show_error_message("请插入输入设备1(CD)")
                 else:
                     self.client.start_record_voice_data(self.client.devices["inputs"][0])
-
+            if not self.client.ser.cd and len(self.client.devices["inputs"]) >= 1 \
+                    and self.client.input_device_flags[self.client.devices["inputs"][0]]:
+                self.client.stop_record_voice_data(self.client.devices["inputs"][0])
             # level 2
-            if self.client.ser.dsr:
+            if self.client.ser.dsr and not self.client.input_device_flags[self.client.devices["inputs"][1]]:
                 if len(self.client.devices["inputs"]) <= 2:
                     self.show_error_message("请插入输入设备2(DSR)")
                 else:
                     self.client.start_record_voice_data(self.client.devices["inputs"][1])
-
+            if not self.client.ser.cd and len(self.client.devices["inputs"]) >= 2 \
+                    and self.client.input_device_flags[self.client.devices["inputs"][1]]:
+                self.client.stop_record_voice_data(self.client.devices["inputs"][1])
             # level 3
-            if self.client.ser.cts:
+            if self.client.ser.cts and not self.client.input_device_flags[self.client.devices["inputs"][2]]:
                 if len(self.client.devices["inputs"]) <= 3:
                     self.show_error_message("请插入输入设备3(CTS)")
                 else:
                     self.client.start_record_voice_data(self.client.devices["inputs"][2])
+            if not self.client.ser.cd and len(self.client.devices["inputs"]) >= 3 \
+                    and self.client.input_device_flags[self.client.devices["inputs"][2]]:
+                self.client.stop_record_voice_data(self.client.devices["inputs"][2])
             time.sleep(0.22)

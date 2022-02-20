@@ -24,7 +24,7 @@ def init_devices():
         max_input_channels = p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')
         max_output_channels = p.get_device_info_by_host_api_device_index(0, i).get('maxOutputChannels')
         name = p.get_device_info_by_host_api_device_index(0, i).get('name')
-        if max_input_channels > 0:
+        if max_input_channels > 0 and name.find("USB") >= 0:
             print("input device id ", i, "-", name)
             devices["inputs"].append(i)
         if max_output_channels > 0:
@@ -53,7 +53,11 @@ class ChatClient:
             listening_channels: [channel_id]  所监听的通道
             listening_clients: [uid] 所监听的客户端
         """
-        self.user = {}
+        self.user = {
+            "id": "",
+            "listening_channels": [],
+            "listening_clients": []
+        }
 
         self.ClientsInfo = {}  # 客户端的信息
         self.Channels = {}  # channel的信息
@@ -79,6 +83,10 @@ class ChatClient:
         self.devices = init_devices()
         logging.info("devices:{}".format(self.devices))
 
+        # 记录输入设备状态
+        self.input_device_flags = {}
+        for input_id in self.devices["inputs"]:
+            self.input_device_flags[input_id] = False
         # play_streams
         self.playing_streams = {
             "pc": [],
@@ -108,7 +116,7 @@ class ChatClient:
         self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
         self.ser.setPort("COM3")
         self.ser.dtr = True
-        #self.ser.open()
+        self.ser.open()
 
         # 使用自带的pc设备播放音频
         self.pc_output_play = False
@@ -129,8 +137,6 @@ class ChatClient:
                 self.user["name"] = u["name"]
                 self.user["id"] = str(u["_id"])
                 self.user["level"] = u["level"]
-                self.user["listening_channels"] = []
-                self.user["listening_clients"] = []
             else:
                 self.ClientsInfo[str(u["_id"])] = {
                     "name": u["name"],
@@ -213,6 +219,13 @@ class ChatClient:
                 return "Time out"
             if "cur_uid" in self.SetChannelRet:
                 return "当前通道被{}占用".format(self.ClientsInfo[self.SetChannelRet["cur_uid"]])
+
+        # 启动所有麦克风设备
+        print("启动所有麦克风设备")
+        self.VoiceRecordFlag = True
+        for input_id in self.devices["inputs"]:
+            logging.info("启动：{}".format(input_id))
+            threading.Thread(target=self.record_voice_data, args=(input_id,)).start()
         return True
 
     # 取消占用channel
@@ -227,19 +240,19 @@ class ChatClient:
                 return "Time out"
         self.ChannelFlag = False
         self.stop_send_to_channel()
-        self.stop_record_voice_data()
+        # 所有输入设备停止工作
+        self.VoiceRecordFlag = False
         return True
 
-    # 开始收取声音数据
-    def start_record_voice_data(self, device_id=-1):
+    # 开始收取输入设备为device_id的声音数据
+    def start_record_voice_data(self, device_id):
         logging.info("start_record_voice_data")
-        self.VoiceRecordFlag = True
-        t = threading.Thread(target=self.record_voice_data, args=(device_id,)).start()
+        self.input_device_flags[device_id] = True
 
-    # 停止收取声音数据
-    def stop_record_voice_data(self):
+    # 停止收取输入设备为device_id的声音数据
+    def stop_record_voice_data(self, device_id):
         logging.info("stop_record_voice_data")
-        self.VoiceRecordFlag = False
+        self.input_device_flags[device_id] = False
 
     # 收取声音数据
     def record_voice_data(self, device_id):
@@ -252,11 +265,13 @@ class ChatClient:
         while not self.ExitFlag and self.VoiceRecordFlag:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
-            self.record_frames.append(data)
-            time.sleep(0.8 * self.chunk_size / self.rate)
-            if len(self.record_frames) > 100:
-                # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
-                self.record_frames = []
+            if self.input_device_flags[device_id]:
+                print("麦克风{} 开始收集声音")
+                self.record_frames.append(data)
+                time.sleep(0.8 * self.chunk_size / self.rate)
+                if len(self.record_frames) > 100:
+                    # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
+                    self.record_frames = []
         recording_stream.close()
         logging.info("stop send_voice_data.")
         return

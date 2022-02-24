@@ -23,7 +23,7 @@ class UIForm(object):
     #     self.client = ChatClient("192.168.1.112", 8002)
 
     def setup_ui(self, main_form):
-        self.client = ChatClient("192.168.31.54", 8001)
+        self.client = ChatClient("192.168.31.101", 8001)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)

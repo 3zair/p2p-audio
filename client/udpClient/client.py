@@ -114,7 +114,7 @@ class ChatClient:
 
         # 脚踏板控制器
         self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        self.ser.setPort("COM3")
+        self.ser.setPort("/dev/tty.usbserial-120")
         self.ser.dtr = True
         self.ser.open()
 

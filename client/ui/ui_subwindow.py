@@ -68,6 +68,13 @@ class UiForm2(QDialog):
         self.label2.setText("音量调节：")
         self.label2.setObjectName("label_2")
 
+        self.volume_slider = QSlider(Qt.Horizontal, mid_frame)
+        self.volume_slider.setGeometry(QtCore.QRect(150, 40, 180, 45))
+        self.volume_slider.valueChanged.connect(self.change_volume)
+        self.volume_slider.setMaximum(32767)
+        self.volume_slider.setPageStep(1024)
+        self.volume_slider.valueChanged.connect(self.change_volume)
+
     def exit_btn(self):
         bot_frame = QtWidgets.QFrame(self)
         # top_frame.setGeometry(QtCore.QRect(20, 40, 980, 95))
@@ -84,6 +91,9 @@ class UiForm2(QDialog):
         ex_btn.setObjectName("ex_btn")
         ex_btn.setText("exit")
         ex_btn.clicked.connect(self.exit)
+
+    def change_volume(self, value):
+        self.volume = value
 
     def exit(self):
         self.close()

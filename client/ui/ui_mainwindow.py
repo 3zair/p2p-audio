@@ -23,7 +23,7 @@ class UIForm(object):
     #     self.client = ChatClient("192.168.1.112", 8002)
 
     def setup_ui(self, main_form):
-        self.client = ChatClient("192.168.31.101", 8001)
+        self.client = ChatClient("192.168.1.112", 8001)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)
@@ -40,11 +40,11 @@ class UIForm(object):
         self.top_frame_init(main_form)
         self.bottom_frame_init(main_form)
         self.user_frame_init(main_form)
-        self.value_change_frame_init(main_form)
+        # self.value_change_frame_init(main_form)
 
         # self.retranslateUi(main_form)
         QtCore.QMetaObject.connectSlotsByName(main_form)
-        threading.Thread(target=self.micro_phone_control).start()
+        # threading.Thread(target=self.micro_phone_control).start()
 
     def change_volume(self, value):
         self.volume = value
@@ -56,7 +56,7 @@ class UIForm(object):
         value_change_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         value_change_frame.setObjectName("value_change_frame")
 
-        self.volume_slider = QSlider(value_change_frame)
+        self.volume_slider = QSlider(Qt.Horizontal, value_change_frame)
         self.volume_slider.setGeometry(QtCore.QRect(2, 2, 40, 100))
         self.volume_slider.valueChanged.connect(self.change_volume)
         self.volume_slider.setMaximum(32767)
@@ -129,8 +129,8 @@ class UIForm(object):
     def top_frame_init(self, main_form):
         # top frame
         top_frame = QtWidgets.QFrame(main_form)
-        # top_frame.setGeometry(QtCore.QRect(20, 40, 980, 95))
-        top_frame.setGeometry(QtCore.QRect(20, 40, 900, 95))
+        top_frame.setGeometry(QtCore.QRect(20, 40, 980, 95))
+        # top_frame.setGeometry(QtCore.QRect(20, 40, 900, 95))
         top_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         top_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         top_frame.setObjectName("top_frame")
@@ -143,46 +143,46 @@ class UIForm(object):
         top_1.setObjectName("top_1")
         top_1.setText("更多功能")
 
-        top_2 = QtWidgets.QPushButton(top_frame)
-        top_2.setGeometry(QtCore.QRect(98, 0, 98, 95))
-        top_2.setMinimumSize(QtCore.QSize(98, 95))
-        top_2.setMaximumSize(QtCore.QSize(98, 95))
-        top_2.setStyleSheet("background-color:rgb(111, 255, 248);")
-        top_2.setObjectName("top_2")
-        top_2.setText("扬声通话")
-
-        top_3 = QtWidgets.QPushButton(top_frame)
-        top_3.setGeometry(QtCore.QRect(196, 0, 98, 95))
-        top_3.setMinimumSize(QtCore.QSize(98, 95))
-        top_3.setMaximumSize(QtCore.QSize(98, 95))
-        top_3.setStyleSheet("background-color:rgb(111, 255, 248);")
-        top_3.setObjectName("top_3")
-        top_3.setText("音量调节")
-        top_3.clicked.connect(self.show_message)
-
-        top_4 = QtWidgets.QPushButton(top_frame)
-        top_4.setGeometry(QtCore.QRect(294, 0, 98, 95))
-        top_4.setMinimumSize(QtCore.QSize(98, 95))
-        top_4.setMaximumSize(QtCore.QSize(98, 95))
-        top_4.setStyleSheet("background-color:rgb(111, 255, 248);")
-        top_4.setObjectName("top_4")
-        top_4.setText("亮度调节")
-
-        top_5 = QtWidgets.QPushButton(top_frame)
-        top_5.setGeometry(QtCore.QRect(392, 0, 98, 95))
-        top_5.setMinimumSize(QtCore.QSize(98, 95))
-        top_5.setMaximumSize(QtCore.QSize(98, 95))
-        top_5.setStyleSheet("background-color:rgb(111, 255, 248);")
-        top_5.setObjectName("top_5")
-        top_5.setText("PTT电话")
-
-        top_6 = QtWidgets.QPushButton(top_frame)
-        top_6.setGeometry(QtCore.QRect(490, 0, 98, 95))
-        top_6.setMinimumSize(QtCore.QSize(98, 95))
-        top_6.setMaximumSize(QtCore.QSize(98, 95))
-        top_6.setStyleSheet("background-color:rgb(111, 255, 248);")
-        top_6.setObjectName("top_6")
-        top_6.setText("通话日志")
+        # top_2 = QtWidgets.QPushButton(top_frame)
+        # top_2.setGeometry(QtCore.QRect(98, 0, 98, 95))
+        # top_2.setMinimumSize(QtCore.QSize(98, 95))
+        # top_2.setMaximumSize(QtCore.QSize(98, 95))
+        # top_2.setStyleSheet("background-color:rgb(111, 255, 248);")
+        # top_2.setObjectName("top_2")
+        # top_2.setText("扬声通话")
+        #
+        # top_3 = QtWidgets.QPushButton(top_frame)
+        # top_3.setGeometry(QtCore.QRect(196, 0, 98, 95))
+        # top_3.setMinimumSize(QtCore.QSize(98, 95))
+        # top_3.setMaximumSize(QtCore.QSize(98, 95))
+        # top_3.setStyleSheet("background-color:rgb(111, 255, 248);")
+        # top_3.setObjectName("top_3")
+        # top_3.setText("音量调节")
+        # top_3.clicked.connect(self.show_message)
+        #
+        # top_4 = QtWidgets.QPushButton(top_frame)
+        # top_4.setGeometry(QtCore.QRect(294, 0, 98, 95))
+        # top_4.setMinimumSize(QtCore.QSize(98, 95))
+        # top_4.setMaximumSize(QtCore.QSize(98, 95))
+        # top_4.setStyleSheet("background-color:rgb(111, 255, 248);")
+        # top_4.setObjectName("top_4")
+        # top_4.setText("亮度调节")
+        #
+        # top_5 = QtWidgets.QPushButton(top_frame)
+        # top_5.setGeometry(QtCore.QRect(392, 0, 98, 95))
+        # top_5.setMinimumSize(QtCore.QSize(98, 95))
+        # top_5.setMaximumSize(QtCore.QSize(98, 95))
+        # top_5.setStyleSheet("background-color:rgb(111, 255, 248);")
+        # top_5.setObjectName("top_5")
+        # top_5.setText("PTT电话")
+        #
+        # top_6 = QtWidgets.QPushButton(top_frame)
+        # top_6.setGeometry(QtCore.QRect(490, 0, 98, 95))
+        # top_6.setMinimumSize(QtCore.QSize(98, 95))
+        # top_6.setMaximumSize(QtCore.QSize(98, 95))
+        # top_6.setStyleSheet("background-color:rgb(111, 255, 248);")
+        # top_6.setObjectName("top_6")
+        # top_6.setText("通话日志")
 
     def bottom_frame_init(self, main_form):
         # bottom frame
@@ -206,7 +206,7 @@ class UIForm(object):
         bottom_2.setMaximumSize(QtCore.QSize(98, 100))
         bottom_2.setStyleSheet("background-color:rgb(196, 255, 216);")
         bottom_2.setObjectName("bottom_2")
-        bottom_2.setText("切换输出设备")
+        bottom_2.setText("f2")
 
         bottom_3 = QtWidgets.QPushButton(bottom_frame)
         bottom_3.setGeometry(QtCore.QRect(196, 0, 98, 100))

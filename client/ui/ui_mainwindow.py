@@ -23,13 +23,14 @@ class UIForm(object):
     #     self.client = ChatClient("192.168.1.112", 8002)
 
     def setup_ui(self, main_form):
-        self.client = ChatClient("192.168.1.112", 8001)
+        self.client = ChatClient("192.168.1.114", 8001)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)
 
         main_form.setObjectName("main_form")
         main_form.resize(1024, 768)
+        # main_form.setWindowFlags(Qt.FramelessWindowHint)  # 去掉标题栏的代码，注释掉是因为隐藏后无法拖动
         main_form.setMinimumSize(QtCore.QSize(1024, 768))
         main_form.setMaximumSize(QtCore.QSize(1024, 768))
         main_form.setStyleSheet("background-color:rgb(179, 179, 179);")
@@ -63,11 +64,29 @@ class UIForm(object):
         self.volume_slider.setPageStep(1024)
         self.volume_slider.valueChanged.connect(self.change_volume)
 
-    def btnClicked(self):
-        form1 = QDialog()
-        self.chile_Win = UiForm2()
-        self.chile_Win.initUI(form1)
-        form1.setWindowModality(Qt.NonModal)
+    def btnClicked(self, main_form):
+        btn = self.sender()
+        c_id = btn.objectName()
+        self.chile_Win = UiForm2(main_form)
+        self.chile_Win.initUI(c_id[-1])
+        self.chile_Win.setWindowModality(Qt.NonModal)
+        # 子窗口位置
+        if c_id[-1] == '1':
+            self.chile_Win.move(40, 160)
+        elif c_id[-1] == '2':
+            self.chile_Win.move(230, 160)
+        elif c_id[-1] == '3':
+            self.chile_Win.move(420, 160)
+        elif c_id[-1] == '4':
+            self.chile_Win.move(40, 280)
+        elif c_id[-1] == '5':
+            self.chile_Win.move(230, 280)
+        elif c_id[-1] == '6':
+            self.chile_Win.move(420, 280)
+        elif c_id[-1] == '7':
+            self.chile_Win.move(40, 400)
+        elif c_id[-1] == '8':
+            self.chile_Win.move(230, 400)
         self.chile_Win.show()
         self.chile_Win.exec_()
 
@@ -100,7 +119,7 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][0].setStyleSheet("background-color:rgb(245, 245, 245);")
             self.channel_push_buttons[channel_frame_name][0].setObjectName("pushButton_name_{}".format(channel_id))
             self.channel_push_buttons[channel_frame_name][0].setText("通道_{}".format(channel_id))
-            self.channel_push_buttons[channel_frame_name][0].clicked.connect(self.btnClicked)
+            self.channel_push_buttons[channel_frame_name][0].clicked.connect(lambda: self.btnClicked(main_form))
 
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))

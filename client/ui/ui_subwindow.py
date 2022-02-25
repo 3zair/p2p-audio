@@ -2,39 +2,29 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog
 from PyQt5.QtCore import Qt
 
+# TODO:此处为模拟子页面配置
+cus = {'1': [0, 50], '2': [1, 60], '3': [0, 70], '4': [1, 80], '5': [0, 90], '6': [1, 10], '7': [0, 20], '8': [1, 30]}
+
 
 class UiForm2(QDialog):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
-    def initUI(self, sub_form):
+    def initUI(self, channel_id):
         self.setWindowFlags(Qt.FramelessWindowHint)
-        # self.setWindowFlags(Qt.WindowCloseButtonHint)
         self.setWindowTitle('子窗口')
-        self.setStyleSheet("background-color:rgb(179, 179, 179);")
+        self.setStyleSheet("background-color:rgb(159, 159, 159);")
         self.resize(350, 350)
         self.setMinimumSize(QtCore.QSize(350, 350))
         self.setMaximumSize(QtCore.QSize(350, 350))
 
-        sub_form.setObjectName("sub_form")
-        # sub_form.resize(500, 500)
-        # sub_form.setMinimumSize(QtCore.QSize(500, 500))
-        # sub_form.setMaximumSize(QtCore.QSize(500, 500))
-
-        sub_form.setWindowTitle("sub_form")
-
-        self.change_device_btn()
-        self.volume_control()
+        self.change_device_btn(cus[channel_id][0])
+        self.volume_control(cus[channel_id][1])
         self.exit_btn()
 
-    # def setupUi(self, Form, text):
-    #     self.label = QtWidgets.QLabel(Form)
-    #     self.label.setText(text)
-
-    def change_device_btn(self):
+    def change_device_btn(self, btn_flag):
         # 新建一个frame
         top_frame = QtWidgets.QFrame(self)
-        # top_frame.setGeometry(QtCore.QRect(20, 40, 980, 95))
         top_frame.setGeometry(QtCore.QRect(0, 0, 350, 120))
         top_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         top_frame.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -50,14 +40,15 @@ class UiForm2(QDialog):
         change_btn.setMinimumSize(QtCore.QSize(80, 80))
         change_btn.setMaximumSize(QtCore.QSize(80, 80))
         change_btn.setCheckable(True)
+        change_btn.setChecked(btn_flag)
         change_btn.setStyleSheet("background-color:rgb(245, 245, 245);")
         change_btn.setObjectName("change_btn")
         change_btn.setText("device")
+        change_btn.clicked.connect(self.change_device)
 
-    def volume_control(self):
+    def volume_control(self, vo):
         # 新建一个frame
         mid_frame = QtWidgets.QFrame(self)
-        # top_frame.setGeometry(QtCore.QRect(20, 40, 980, 95))
         mid_frame.setGeometry(QtCore.QRect(0, 120, 350, 120))
         mid_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         mid_frame.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -70,9 +61,10 @@ class UiForm2(QDialog):
 
         self.volume_slider = QSlider(Qt.Horizontal, mid_frame)
         self.volume_slider.setGeometry(QtCore.QRect(150, 40, 180, 45))
-        self.volume_slider.valueChanged.connect(self.change_volume)
         self.volume_slider.setMaximum(32767)
         self.volume_slider.setPageStep(1024)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(vo)
         self.volume_slider.valueChanged.connect(self.change_volume)
 
     def exit_btn(self):
@@ -94,6 +86,9 @@ class UiForm2(QDialog):
 
     def change_volume(self, value):
         self.volume = value
+
+    def change_device(self):
+        pass
 
     def exit(self):
         self.close()

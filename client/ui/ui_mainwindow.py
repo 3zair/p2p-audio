@@ -17,6 +17,7 @@ class UIForm(object):
         self.users = None
         self.channels = None
         self.volume = 50
+        self.chile_Win = None
 
     # def setup_ui(self, main_form):
     #     # self.client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
@@ -67,7 +68,9 @@ class UIForm(object):
     def btnClicked(self, main_form):
         btn = self.sender()
         c_id = btn.objectName()
+        # 实例化子窗口
         self.chile_Win = UiForm2(main_form)
+        # 初始化子窗口参数
         self.chile_Win.initUI(c_id[-1])
         self.chile_Win.setWindowModality(Qt.NonModal)
         # 子窗口位置
@@ -87,7 +90,7 @@ class UIForm(object):
             self.chile_Win.move(40, 400)
         elif c_id[-1] == '8':
             self.chile_Win.move(230, 400)
-        self.chile_Win.show()
+        # self.chile_Win.show()
         self.chile_Win.exec_()
 
     def channel_frame_init(self, main_form):
@@ -118,6 +121,7 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][0].setMaximumSize(QtCore.QSize(110, 120))
             self.channel_push_buttons[channel_frame_name][0].setStyleSheet("background-color:rgb(245, 245, 245);")
             self.channel_push_buttons[channel_frame_name][0].setObjectName("pushButton_name_{}".format(channel_id))
+            # self.channel_push_buttons[channel_frame_name][0].setCheckable(True)
             self.channel_push_buttons[channel_frame_name][0].setText("通道_{}".format(channel_id))
             self.channel_push_buttons[channel_frame_name][0].clicked.connect(lambda: self.btnClicked(main_form))
 
@@ -299,6 +303,15 @@ class UIForm(object):
         user_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         user_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         user_frame.setObjectName("user_frame")
+
+        user_1 = QtWidgets.QPushButton(user_frame)
+        user_1.setGeometry(QtCore.QRect(0, 0, 90, 90))
+        user_1.setMinimumSize(QtCore.QSize(90, 90))
+        user_1.setMaximumSize(QtCore.QSize(90, 90))
+        user_1.setCheckable(True)
+        user_1.setStyleSheet("background-color:rgb(245, 245, 245);")
+        user_1.setObjectName("top_1")
+        user_1.setText("User 001")
 
     def show_message(self):
         QMessageBox.information(self, "标题", "我很喜欢学习python",

@@ -1,6 +1,7 @@
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 
 # TODO:此处为模拟子页面配置
 cus = {'1': [0, 50], '2': [1, 60], '3': [0, 70], '4': [1, 80], '5': [0, 90], '6': [1, 10], '7': [0, 20], '8': [1, 30]}
@@ -35,16 +36,21 @@ class UiForm2(QDialog):
         self.label.setText("音频输出设备为：")
         self.label.setObjectName("label_1")
 
-        change_btn = QtWidgets.QPushButton(top_frame)
-        change_btn.setGeometry(QtCore.QRect(150, 30, 80, 80))
-        change_btn.setMinimumSize(QtCore.QSize(80, 80))
-        change_btn.setMaximumSize(QtCore.QSize(80, 80))
-        change_btn.setCheckable(True)
-        change_btn.setChecked(btn_flag)
-        change_btn.setStyleSheet("background-color:rgb(245, 245, 245);")
-        change_btn.setObjectName("change_btn")
-        change_btn.setText("device")
-        change_btn.clicked.connect(self.change_device)
+        self.change_btn = QtWidgets.QPushButton(top_frame)
+        self.change_btn.setGeometry(QtCore.QRect(150, 30, 80, 80))
+        self.change_btn.setMinimumSize(QtCore.QSize(80, 80))
+        self.change_btn.setMaximumSize(QtCore.QSize(80, 80))
+        self.change_btn.setCheckable(True)
+        self.change_btn.setChecked(btn_flag)
+        self.change_btn.setStyleSheet("background-color:rgb(245, 245, 245)")
+        self.change_btn.setObjectName("change_btn")
+        # change_btn.setText("device")
+        self.change_btn.clicked.connect(self.change_device)
+        if self.change_btn.isChecked():
+            self.change_btn.setIcon(QIcon('ui/headset.svg'))
+        else:
+            self.change_btn.setIcon(QIcon('ui/speaker.png'))
+        self.change_btn.setIconSize(QtCore.QSize(50, 50))
 
     def volume_control(self, vo):
         # 新建一个frame
@@ -88,7 +94,10 @@ class UiForm2(QDialog):
         self.volume = value
 
     def change_device(self):
-        pass
+        if self.change_btn.isChecked():
+            self.change_btn.setIcon(QIcon('ui/headset.svg'))
+        else:
+            self.change_btn.setIcon(QIcon('ui/speaker.png'))
 
     def exit(self):
         self.close()

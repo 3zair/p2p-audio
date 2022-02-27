@@ -4,3 +4,7 @@ test.py
 .DS_Store
 /temp
 *.wav
+*.spec
+/build
+/dist
+*.bat

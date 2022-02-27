@@ -163,7 +163,7 @@ class ChatClient:
     def receive_server_data(self):
         channel_buffer, client_buffer = {}, {}
         channel_orders, client_orders = [], []
-        f = wave.open("receive.wav","wb")
+        f = wave.open("receive.wav", "wb")
         f.setnchannels(self.audio_channels)
         f.setsampwidth(self.p.get_sample_size(self.audio_format))
         f.setframerate(self.rate)
@@ -277,27 +277,27 @@ class ChatClient:
         else:
             recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                                            input=True, frames_per_buffer=self.chunk_size, input_device_index=device_id)
-        f = wave.open("record.wav", "wb")
-        f.setnchannels(self.audio_channels)
-        f.setsampwidth(self.p.get_sample_size(self.audio_format))
-        f.setframerate(self.rate)
-        frames = []
+        # f = wave.open("record.wav", "wb")
+        # f.setnchannels(self.audio_channels)
+        # f.setsampwidth(self.p.get_sample_size(self.audio_format))
+        # f.setframerate(self.rate)
+        # frames = []
 
         while not self.ExitFlag and self.VoiceRecordFlag:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
-            frames.append(data)
+            # frames.append(data)
             if self.input_device_flags[device_id]:
-                #self.playing_stream.write(data)
+                # self.playing_stream.write(data)
                 # logging.info("开始收集声音 {}".format(len(data)))
                 self.record_frames.append(data)
-                #time.sleep(0.8 * self.chunk_size / self.rate)
+                # time.sleep(0.8 * self.chunk_size / self.rate)
                 if len(self.record_frames) > 100:
                     # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
                     self.record_frames = []
 
-        f.writeframes(b''.join(frames))
-        f.close()
+        # f.writeframes(b''.join(frames))
+        # f.close()
         recording_stream.close()
         logging.info("stop send_voice_data.")
         return

@@ -47,9 +47,9 @@ class UiForm2(QDialog):
         # change_btn.setText("device")
         self.change_btn.clicked.connect(self.change_device)
         if self.change_btn.isChecked():
-            self.change_btn.setIcon(QIcon('ui/headset.svg'))
+            self.change_btn.setIcon(QIcon('ui/img/headset.svg'))
         else:
-            self.change_btn.setIcon(QIcon('ui/speaker.png'))
+            self.change_btn.setIcon(QIcon('ui/img/speaker.png'))
         self.change_btn.setIconSize(QtCore.QSize(50, 50))
 
     def volume_control(self, vo):
@@ -95,9 +95,9 @@ class UiForm2(QDialog):
 
     def change_device(self):
         if self.change_btn.isChecked():
-            self.change_btn.setIcon(QIcon('ui/headset.svg'))
+            self.change_btn.setIcon(QIcon('ui/img/headset.svg'))
         else:
-            self.change_btn.setIcon(QIcon('ui/speaker.png'))
+            self.change_btn.setIcon(QIcon('ui/img/speaker.png'))
 
     def exit(self):
         self.close()

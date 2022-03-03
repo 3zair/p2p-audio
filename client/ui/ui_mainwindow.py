@@ -5,7 +5,8 @@ import time
 from udpClient.client import ChatClient
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QPropertyAnimation
+from PyQt5.QtGui import QColor
 from .ui_subwindow import UiForm2
 
 
@@ -24,7 +25,7 @@ class UIForm(object):
     #     self.client = ChatClient("192.168.1.112", 8002)
 
     def setup_ui(self, main_form):
-        self.client = ChatClient("192.168.1.114", 8001)
+        self.client = ChatClient("192.168.31.101", 8001)
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         print(self.client.user)
@@ -48,22 +49,22 @@ class UIForm(object):
         QtCore.QMetaObject.connectSlotsByName(main_form)
         # threading.Thread(target=self.micro_phone_control).start()
 
-    def change_volume(self, value):
-        self.volume = value
-
-    def value_change_frame_init(self, main_form):
-        value_change_frame = QtWidgets.QFrame(main_form)
-        value_change_frame.setGeometry(QtCore.QRect(930, 10, 50, 120))
-        value_change_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        value_change_frame.setFrameShadow(QtWidgets.QFrame.Raised)
-        value_change_frame.setObjectName("value_change_frame")
-
-        self.volume_slider = QSlider(Qt.Horizontal, value_change_frame)
-        self.volume_slider.setGeometry(QtCore.QRect(2, 2, 40, 100))
-        self.volume_slider.valueChanged.connect(self.change_volume)
-        self.volume_slider.setMaximum(32767)
-        self.volume_slider.setPageStep(1024)
-        self.volume_slider.valueChanged.connect(self.change_volume)
+    # def change_volume(self, value):
+    #     self.volume = value
+    #
+    # def value_change_frame_init(self, main_form):
+        # value_change_frame = QtWidgets.QFrame(main_form)
+        # value_change_frame.setGeometry(QtCore.QRect(930, 10, 50, 120))
+        # value_change_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        # value_change_frame.setFrameShadow(QtWidgets.QFrame.Raised)
+        # value_change_frame.setObjectName("value_change_frame")
+        #
+        # self.volume_slider = QSlider(Qt.Horizontal, value_change_frame)
+        # self.volume_slider.setGeometry(QtCore.QRect(2, 2, 40, 100))
+        # self.volume_slider.valueChanged.connect(self.change_volume)
+        # self.volume_slider.setMaximum(32767)
+        # self.volume_slider.setPageStep(1024)
+        # self.volume_slider.valueChanged.connect(self.change_volume)
 
     def btnClicked(self, main_form):
         btn = self.sender()
@@ -135,6 +136,10 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][1].setObjectName(channel_id)
             self.channel_push_buttons[channel_frame_name][1].setText("RX")
             self.channel_push_buttons[channel_frame_name][1].clicked.connect(self.channel_rx_click_handle)
+            # TODO:某通道有消息时，对应的RX按钮变色
+
+            # self.channel_push_buttons[channel_frame_name][1].animation.setKeyValueAt(0.1, QColor(0, 255, 0))
+
 
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
@@ -148,6 +153,8 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][2].clicked.connect(self.channel_tx_click_handle)
 
             print(channel_id, self.channels[channel_id])
+
+        # self.somebody_speaking(3)
 
     def top_frame_init(self, main_form):
         # top frame
@@ -438,3 +445,16 @@ class UIForm(object):
                     and self.client.input_device_flags[self.client.devices["inputs"][2]]:
                 self.client.stop_record_voice_data(self.client.devices["inputs"][2])
             time.sleep(0.22)
+
+    def animation(self, channel_id):
+        channel_frame_name = "channel_frame_{}".format(channel_id)
+        self.ani = QPropertyAnimation(self.channel_push_buttons[channel_frame_name][1], "color")
+        self.ani.setDuration(1000)
+        self.ani.setLoopCount(20)
+        self.ani.setStartValue(QColor(245, 245, 245))
+        self.ani.setEndValue(QColor(255, 255, 0))
+
+    def somebody_speaking(self, channel_id):
+        self.animation(channel_id)
+        self.ani.start()
+

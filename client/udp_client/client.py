@@ -67,7 +67,7 @@ class ChatClient:
         # 消息发送结束标识
         self.ChannelFlag = False
         self.UserFlag = False
-        self.VoiceRecordFlag = True
+        self.VoiceRecordFlag = False
         self.ExitFlag = False
 
         # 发消息
@@ -88,7 +88,7 @@ class ChatClient:
         # 记录输入设备状态
         self.input_device_flags = {}
         for input_id in self.devices["inputs"]:
-            self.input_device_flags[input_id] = True
+            self.input_device_flags[input_id] = False
         # play_streams
         self.playing_streams = {
             "pc": [],
@@ -102,25 +102,25 @@ class ChatClient:
         self.rate = 16000
         self.RECORD_SECONDS = 10
         self.WAVE_OUTPUT_FILENAME = "output"
-        # for pc_op_id in self.devices["pc_outputs"]:
-        #     self.playing_streams["pc"].append(
-        #         self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-        #                     output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
-        # for pc_op_id in self.devices["usb_outputs"]:
-        #     self.playing_streams["usb"].append(
-        #         self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-        #                     output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
-        self.playing_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                                          output=True, frames_per_buffer=self.chunk_size)
+        for pc_op_id in self.devices["pc_outputs"]:
+            self.playing_streams["pc"].append(
+                self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                            output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
+        for pc_op_id in self.devices["usb_outputs"]:
+            self.playing_streams["usb"].append(
+                self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                            output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
+        # self.playing_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+        #                                   output=True, frames_per_buffer=self.chunk_size)
 
         self.record_frames = []
         self.play_frames = []
 
         # 脚踏板控制器
-        # self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        # self.ser.setPort("COM3")
-        # self.ser.dtr = True
-        # self.ser.open()
+        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        self.ser.setPort("COM3")
+        self.ser.dtr = True
+        self.ser.open()
 
         # 使用自带的pc设备播放音频
         self.pc_output_play = True
@@ -131,7 +131,6 @@ class ChatClient:
         threading.Thread(target=self.play).start()
         # for input_id in self.devices["inputs"]:
         #     logging.info("启动：{}".format(input_id))
-        threading.Thread(target=self.record_voice_data, args=(1,)).start()
 
     def Init(self, ip, port):
         # TODO read from conf
@@ -237,9 +236,12 @@ class ChatClient:
             if "cur_uid" in self.SetChannelRet:
                 return "当前通道被{}占用".format(self.ClientsInfo[self.SetChannelRet["cur_uid"]])
 
-        # 启动所有麦克风设备
-        print("启动所有麦克风设备")
         self.VoiceRecordFlag = True
+        # 启动所有麦克风设备
+        for input_device in self.devices["inputs"]:
+            threading.Thread(target=self.record_voice_data, args=(input_device,)).start()
+
+        print("启动所有麦克风设备")
 
         return True
 
@@ -277,27 +279,16 @@ class ChatClient:
         else:
             recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                                            input=True, frames_per_buffer=self.chunk_size, input_device_index=device_id)
-        # f = wave.open("record.wav", "wb")
-        # f.setnchannels(self.audio_channels)
-        # f.setsampwidth(self.p.get_sample_size(self.audio_format))
-        # f.setframerate(self.rate)
-        # frames = []
 
         while not self.ExitFlag and self.VoiceRecordFlag:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
-            # frames.append(data)
             if self.input_device_flags[device_id]:
-                # self.playing_stream.write(data)
-                # logging.info("开始收集声音 {}".format(len(data)))
                 self.record_frames.append(data)
-                # time.sleep(0.8 * self.chunk_size / self.rate)
                 if len(self.record_frames) > 100:
                     # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
                     self.record_frames = []
 
-        # f.writeframes(b''.join(frames))
-        # f.close()
         recording_stream.close()
         logging.info("stop send_voice_data.")
         return
@@ -376,16 +367,16 @@ class ChatClient:
                 pfs = self.play_frames.pop()
                 for pf in pfs:
                     if self.pc_output_play:
-                        self.playing_stream.write(pf)
-                        frames.append(pf)
+                        # self.playing_stream.write(pf)
+                        # frames.append(pf)
 
                         # 系统默认的播放器播放
-                    #     for pls in self.playing_streams["pc"]:
-                    #         pls.write(pf)
-                    # else:
-                    #     # usb耳机的播放器播放
-                    #     for pls in self.playing_streams["usb"]:
-                    #         pls.write(pf)
+                        for pls in self.playing_streams["pc"]:
+                            pls.write(pf)
+                    else:
+                        # usb耳机的播放器播放
+                        for pls in self.playing_streams["usb"]:
+                            pls.write(pf)
                     time.sleep(0.8 * self.chunk_size / self.rate)
         f.writeframes(b''.join(frames))
         f.close()

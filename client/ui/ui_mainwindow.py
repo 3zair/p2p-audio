@@ -2,19 +2,19 @@ import logging
 import threading
 import time
 
-from udpClient.client import ChatClient
+from udp_client.client import ChatClient
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog
 from PyQt5.QtCore import Qt
 from .ui_subwindow import UiForm2
+from conf.conf import get_host, get_port
 
 
 class UIForm(object):
     def __init__(self):
         self.channel_push_buttons = {}
         self.channel_frames = {}
-        self.client = ChatClient("192.168.31.143"
-                                 "", 8001)
+        self.client = ChatClient(get_host(), get_port())
         self.users = self.client.ClientsInfo
         self.channels = self.client.Channels
         self.volume = 50
@@ -47,7 +47,7 @@ class UIForm(object):
 
         # self.retranslateUi(main_form)
         QtCore.QMetaObject.connectSlotsByName(main_form)
-        #threading.Thread(target=self.micro_phone_control).start()
+        threading.Thread(target=self.micro_phone_control).start()
 
     def change_volume(self, value):
         self.volume = value
@@ -428,7 +428,7 @@ class UIForm(object):
                     logging.info("请插入输入设备2(DSR)")
                 elif not self.client.input_device_flags[self.client.devices["inputs"][1]]:
                     self.client.start_record_voice_data(self.client.devices["inputs"][1])
-            if not self.client.ser.cd and len(self.client.devices["inputs"]) >= 2 \
+            if not self.client.ser.dsr and len(self.client.devices["inputs"]) >= 2 \
                     and self.client.input_device_flags[self.client.devices["inputs"][1]]:
                 self.client.stop_record_voice_data(self.client.devices["inputs"][1])
             # level 3
@@ -438,7 +438,7 @@ class UIForm(object):
                     logging.info("请插入输入设备3(CTS)")
                 elif not self.client.input_device_flags[self.client.devices["inputs"][2]]:
                     self.client.start_record_voice_data(self.client.devices["inputs"][2])
-            if not self.client.ser.cd and len(self.client.devices["inputs"]) >= 3 \
+            if not self.client.ser.cts and len(self.client.devices["inputs"]) >= 3 \
                     and self.client.input_device_flags[self.client.devices["inputs"][2]]:
                 self.client.stop_record_voice_data(self.client.devices["inputs"][2])
             time.sleep(0.22)

@@ -4,7 +4,7 @@ import logging
 import threading
 
 from common import mgo
-from client.udpClient import my_udp
+from client.udp_client import my_udp
 
 
 class ChatServer:

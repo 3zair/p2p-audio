@@ -1,3 +1,6 @@
+import os.path
+import sys
+
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog
 from PyQt5.QtCore import Qt
@@ -10,6 +13,7 @@ cus = {'1': [0, 50], '2': [1, 60], '3': [0, 70], '4': [1, 80], '5': [0, 90], '6'
 class UiForm2(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.static_dir = os.path.join(os.getcwd(), "statics")
 
     def initUI(self, channel_id):
         self.setWindowFlags(Qt.FramelessWindowHint)
@@ -47,9 +51,9 @@ class UiForm2(QDialog):
         # change_btn.setText("device")
         self.change_btn.clicked.connect(self.change_device)
         if self.change_btn.isChecked():
-            self.change_btn.setIcon(QIcon('./client/ui/headset.svg'))
+            self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'headset.svg')))
         else:
-            self.change_btn.setIcon(QIcon('./client/ui/speaker.png'))
+            self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'speaker.png')))
         self.change_btn.setIconSize(QtCore.QSize(50, 50))
 
     def volume_control(self, vo):
@@ -95,9 +99,9 @@ class UiForm2(QDialog):
 
     def change_device(self):
         if self.change_btn.isChecked():
-            self.change_btn.setIcon(QIcon('./client/ui/headset.svg'))
+            self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'headset.svg')))
         else:
-            self.change_btn.setIcon(QIcon('./client/ui/speaker.png'))
+            self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'speaker.png')))
 
     def exit(self):
         self.close()

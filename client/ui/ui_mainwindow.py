@@ -576,12 +576,12 @@ class UIForm(object):
             tx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][2]
             tx_checked = tx_button.isChecked()
             if tx_checked:
-                if self.client.CurChannel is not None and self.client.CurChannel == channel_id:
+                if self.client.cur_channel is not None and self.client.cur_channel == channel_id:
                     ret = self.cancel_occupy_channel(channel_id)
                     if ret is True:
                         self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setChecked(False)
                     else:
-                        self.client.CurChannel = channel_id
+                        self.client.cur_channel = channel_id
                         logging.error("取消占用channel {} err: {}".format(channel_id, ret))
                         self.show_error_message("通道{}释放失败".format(channel_id))
 
@@ -597,8 +597,8 @@ class UIForm(object):
         if checked:
             # 开始占用通道 channel_id
             # 检测当前是否占用其他某个信道
-            cur_channel = self.client.CurChannel
-            if self.client.CurChannel is not None:
+            cur_channel = self.client.cur_channel
+            if self.client.cur_channel is not None:
                 ret = self.cancel_occupy_channel(cur_channel)
                 if ret is True:
                     self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setStyleSheet("background-color:rgb(210, 210, 210);")
@@ -606,7 +606,7 @@ class UIForm(object):
                 else:
                     # 当前占用的通道取消失败
                     tx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
-                    self.client.CurChannel = cur_channel
+                    self.client.cur_channel = cur_channel
                     tx_button.setChecked(False)
                     logging.error("释放channel {} err: {}".format(cur_channel, ret))
                     self.show_error_message("通道{}释放失败".format(cur_channel))
@@ -629,7 +629,7 @@ class UIForm(object):
                 self.show_error_message("通道{}占用失败".format(channel_id))
         else:
             # 取消占用通道 channel_id
-            if self.client.CurChannel is not None:
+            if self.client.cur_channel is not None:
                 ret = self.cancel_occupy_channel(channel_id)
                 if ret is True:
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setStyleSheet("background-color:rgb(210, 210, 210);")
@@ -637,7 +637,7 @@ class UIForm(object):
                 else:
                     # 当前占用的通道取消失败
                     tx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
-                    self.client.CurChannel = channel_id
+                    self.client.cur_channel = channel_id
                     tx_button.setChecked(True)
                     logging.error("取消占用channel {} err: {}".format(channel_id, ret))
                     self.show_error_message("通道{}释放失败".format(channel_id))
@@ -655,7 +655,7 @@ class UIForm(object):
 
     # 麦克风控制
     def micro_phone_control(self):
-        while self.client and not self.client.ExitFlag:
+        while self.client and not self.client.exit_flag:
             print(" DTR:", self.client.ser.dtr, " CD:", self.client.ser.cd, " DSR:", self.client.ser.dsr, " CTS:",
                   self.client.ser.cts)
             # level 1

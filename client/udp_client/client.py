@@ -12,13 +12,89 @@ import serial
 from .my_udp import UdpMsg
 from common.mgo import col_user, col_channel
 
+from .volume_control_utils import MyAudioUtilities
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import IAudioEndpointVolume
+from ctypes import POINTER, cast
 
+# 控制音量
+OutputDevices = {
+    "pc": [],
+    "usb": []
+}
+
+
+def output_device_init_for_volume_control():
+    global OutputDevices
+    # 打印所有音频设备
+    device_list = MyAudioUtilities.GetAllDevices()
+    i = 0
+    for device in device_list:
+        if device.FriendlyName.find("扬声器") >= 0:
+            if device.FriendlyName.find("USB") >= 0:
+                OutputDevices["usb"].append(device)
+            else:
+                OutputDevices["pc"].append(device)
+        i += 1
+
+
+# 通道的输出设备相关配置
+# key: channel_id
+# value:[device,pc_volume,usb_volume]
+#       device: pc=>1, usb=>2
+ChannelsOutputVolumeConf = {}
+CurChannel = None
+
+# 默认耳机播放音频
+CurOutputModel = 2
+
+
+def set_output_volume_value(device, value):
+    try:
+        tmp = device.id
+        devices = MyAudioUtilities.GetDevice(tmp)
+
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        volume = cast(interface, POINTER(IAudioEndpointVolume))
+        volume.SetMasterVolumeLevelScalar(value / 100.0, None)
+    except Exception as e:
+        logging.warning("set_output_volume_value err:{}".format(e))
+
+
+def change_output_volume(channel_id, device, usb_volume=-1, pc_volume=-1):
+    global ChannelsOutputVolumeConf, CurChannel,CurOutputModel
+    if channel_id in ChannelsOutputVolumeConf:
+        ChannelsOutputVolumeConf[channel_id][0] = device
+        CurOutputModel = device
+        logging.info(ChannelsOutputVolumeConf)
+        if pc_volume > -1:
+            ChannelsOutputVolumeConf[channel_id][1] = pc_volume
+
+            for device in OutputDevices["pc"]:
+                set_output_volume_value(device, pc_volume)
+        if usb_volume > -1:
+            ChannelsOutputVolumeConf[channel_id][2] = usb_volume
+
+            for device in OutputDevices["usb"]:
+                set_output_volume_value(device, usb_volume)
+    else:
+        logging.warning("invalid channel_id: {}".format(channel_id))
+
+
+def get_channel_volume_conf():
+    global ChannelsOutputVolumeConf
+    logging.info(ChannelsOutputVolumeConf)
+    return ChannelsOutputVolumeConf
+
+
+# 语音输入与输出
 def init_devices():
     devices = {
         "inputs": [],
         "pc_outputs": [],
         "usb_outputs": []
     }
+
     p = pyaudio.PyAudio()
     info = p.get_host_api_info_by_index(0)
     num_devices = info.get('deviceCount')
@@ -44,95 +120,17 @@ class ChatClient:
         self.col_user = col_user
         self.col_channel = col_channel
 
-        """
-        当前用户的信息
-        keys：
-            id: uid
-            name: 称呼
-            ip: IP地址
-            port: udp端口
-            listening_channels: [channel_id]  所监听的通道
-            listening_clients: [uid] 所监听的客户端
-        """
         self.user = {
-            "id": "",
-            "listening_channels": [],
-            "listening_clients": []
+            "id": "",  # id
+            "name": "",
+            "ip": ip,
+            "port": port,  # udp端口
+            "listening_channels": [],  # [channel_id]  所监听的通道
+            "listening_clients": []  # [uid] 所监听的客户端
         }
-
         self.ClientsInfo = {}  # 客户端的信息
-        self.ChannelsInfo = {}  # channel的信息
-        self.availableChannels = []
 
-        # 消息发送结束标识
-        self.ChannelFlag = False
-        self.UserFlag = False
-        self.VoiceRecordFlag = False
-        self.ExitFlag = False
-
-        # 发消息
-        self.CurClient = None  # 当前选择通话的用户
-        self.CurChannel = None  # 当前占用的通道
-        self.SetChannelRet = {}
-
-        self.Init(ip, port)
-
-        # udp
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.s.bind((self.user["ip"], self.user["port"]))
-
-        # 输入输出设备信息初始化
-        self.devices = init_devices()
-        logging.info("devices:{}".format(self.devices))
-
-        # 记录输入设备状态
-        self.input_device_flags = {}
-        for input_id in self.devices["inputs"]:
-            self.input_device_flags[input_id] = False
-        # play_streams
-        self.playing_streams = {
-            "pc": [],
-            "usb": [],
-        }
-        # audio conf
-        self.p = pyaudio.PyAudio()
-        self.chunk_size = 512  # 512
-        self.audio_format = pyaudio.paInt16
-        self.audio_channels = 1
-        self.rate = 16000
-        self.RECORD_SECONDS = 10
-        self.WAVE_OUTPUT_FILENAME = "output"
-        for pc_op_id in self.devices["pc_outputs"]:
-            self.playing_streams["pc"].append(
-                self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                            output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
-        for pc_op_id in self.devices["usb_outputs"]:
-            self.playing_streams["usb"].append(
-                self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                            output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
-
-        self.record_frames = []
-        self.play_frames = []
-
-        # 脚踏板控制器
-        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        self.ser.setPort("COM3")
-        self.ser.dtr = True
-        self.ser.open()
-
-        # 使用自带的pc设备播放音频
-        self.pc_output_play = False
-
-        # 接收udp消息
-        threading.Thread(target=self.receive_server_data).start()
-        # 处理udp语音消息
-        threading.Thread(target=self.play).start()
-
-    def Init(self, ip, port):
-        # TODO read from conf
-        self.user["ip"] = ip
-        self.user["port"] = port
-
+        # users
         users = self.col_user.find()
         for u in users:
             if self.user["ip"] == u["ip"] and self.user["port"] == u["port"]:
@@ -144,14 +142,72 @@ class ChatClient:
                     "ip": u["ip"],
                     "port": u["port"],
                 }
-            logging.info("client id:{} name:{} ip:{} port:{}".format(u["_id"], u["name"], u["ip"], u["port"]))
+        # channels
+        self.ChannelsInfo = {}  # channel的信息
+        self.availableChannels = []
+        global ChannelsOutputVolumeConf  # 用于通道音量控制
         channel_ret = self.col_channel.find()
         for c in channel_ret:
-            logging.info(
-                "channel id:{} ip:{} port:{}".format(c["_id"], c["ip"], c["port"], c["status"]))
-            self.ChannelsInfo[str(c["_id"])] = {"port": c["port"], "ip": c["ip"], "status": c["status"]}
+            channel_id = str(c["_id"])
+            self.ChannelsInfo[channel_id] = {"port": c["port"], "ip": c["ip"], "status": c["status"]}
             if c["status"] == 1:
-                self.availableChannels.append(c["_id"])
+                self.availableChannels.append(channel_id)
+                ChannelsOutputVolumeConf[channel_id] = [2, 50, 50]
+
+        # 消息发送结束标识
+        self.ChannelFlag = False
+        self.UserFlag = False
+        self.VoiceRecordFlag = False
+        self.exit_flag = False
+
+        # 发消息
+        self.cur_client = None  # 当前选择通话的用户
+        self.cur_channel = None  # 当前占用的通道
+
+        # udp
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.s.bind((self.user["ip"], self.user["port"]))
+
+        # 输入输出设备信息初始化（用于记录和播放声音）
+        self.devices = init_devices()
+        logging.info("devices:{}".format(self.devices))
+        # 输出设备初始化（用于调节音量）
+        output_device_init_for_volume_control()
+
+        self.record_frames = []
+        self.play_frames = []
+        # 记录输入设备状态
+        self.input_device_flags = {}
+        for input_id in self.devices["inputs"]:
+            self.input_device_flags[input_id] = False
+
+        # audio conf
+        self.p = pyaudio.PyAudio()
+        self.chunk_size = 512  # 512
+        self.audio_format = pyaudio.paInt16
+        self.audio_channels = 1
+        self.rate = 16000
+        # play_streams
+        self.playing_streams = {"pc": [], "usb": []}
+        for pc_op_id in self.devices["pc_outputs"]:
+            self.playing_streams["pc"].append(
+                self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                            output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
+        for pc_op_id in self.devices["usb_outputs"]:
+            self.playing_streams["usb"].append(
+                self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                            output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
+
+        # 接收udp消息
+        threading.Thread(target=self.receive_server_data).start()
+        # 处理udp语音消息
+        threading.Thread(target=self.play).start()
+
+        # 脚踏板控制器
+        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        self.ser.setPort("COM3")
+        self.ser.dtr = True
+        self.ser.open()
 
     # 监听数据
     def receive_server_data(self):
@@ -162,22 +218,11 @@ class ChatClient:
         f.setsampwidth(self.p.get_sample_size(self.audio_format))
         f.setframerate(self.rate)
         frames = []
-        while not self.ExitFlag:
+        while not self.exit_flag:
             try:
                 data, _server = self.s.recvfrom(2048)
                 msg = UdpMsg(msg=data)
                 msg_body = json.loads(msg.getBody())
-
-                # 占用通道请求的结果
-                if msg.msgType == 200:
-                    if msg_body["ret"]:
-                        self.CurChannel = msg_body["channel_id"]
-                    else:
-                        self.SetChannelRet["cur_uid"] = msg_body["user"]
-                # 取消占用通道请求的结果
-                elif msg.msgType == 201:
-                    if msg_body["ret"]:
-                        self.CurChannel = None
 
                 # TODO 获取当前监听的的客户端,放入播放队列
                 # if msg.msgType == 101 and msg_body["from"] in User["listening_clients"]:
@@ -221,36 +266,21 @@ class ChatClient:
     # 请求占用channel
     def choose_channel(self, channel_id):
         logging.info("choose_channel {} {}".format(channel_id, self.user))
-        msg = UdpMsg(msgType=200,
-                     body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
-        self.s.sendto(msg.getMsg(), self.get_channel())
-        t = time.time()
-        while self.CurChannel != channel_id:
-            if time.time() - t > 1:
-                return "Time out"
-            if "cur_uid" in self.SetChannelRet:
-                return "当前通道被{}占用".format(self.ClientsInfo[self.SetChannelRet["cur_uid"]])
-
+        global CurChannel
+        CurChannel = channel_id
+        self.cur_channel = channel_id
         self.VoiceRecordFlag = True
         # 启动所有麦克风设备
         for input_device in self.devices["inputs"]:
             threading.Thread(target=self.record_voice_data, args=(input_device,)).start()
-
-        print("启动所有麦克风设备")
-
         return True
 
     # 取消占用channel
     def cancel_channel(self, channel_id):
         logging.info("cancel_channel {}".format(channel_id))
-        msg = UdpMsg(msgType=201,
-                     body=json.dumps({"uid": self.user["id"], "channel_id": channel_id}))
-        self.s.sendto(msg.getMsg(), self.get_channel())
-        t = time.time()
-        while self.CurChannel is not None:
-            if time.time() - t > 1:
-                return "Time out"
-        self.ChannelFlag = False
+        global CurChannel
+        CurChannel = None
+        self.cur_channel = None
         self.stop_send_to_channel()
         # 所有输入设备停止工作
         self.VoiceRecordFlag = False
@@ -275,7 +305,7 @@ class ChatClient:
             recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                                            input=True, frames_per_buffer=self.chunk_size, input_device_index=device_id)
 
-        while not self.ExitFlag and self.VoiceRecordFlag:
+        while not self.exit_flag and self.VoiceRecordFlag:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
             if self.input_device_flags[device_id]:
@@ -290,10 +320,10 @@ class ChatClient:
 
     # 将声音数据发送到通道上 100
     def start_send_to_channel(self):
-        logging.info("start_send_to_channel {}".format(self.CurChannel))
+        logging.info("start_send_to_channel {}".format(self.cur_channel))
 
         self.ChannelFlag = True
-        threading.Thread(target=self.send_voice_data, args=("channel", self.CurChannel)).start()
+        threading.Thread(target=self.send_voice_data, args=("channel", self.cur_channel)).start()
 
     # 停止向当前的通道发送数据
     def stop_send_to_channel(self):
@@ -315,7 +345,7 @@ class ChatClient:
         # 发送到通道
         if type == "channel":
             num = 0
-            while not self.ExitFlag and self.ChannelFlag:
+            while not self.exit_flag and self.ChannelFlag:
                 if len(self.record_frames) > 0:
                     try:
                         body = {"from": self.user["id"], "channel_id": to_id}
@@ -333,7 +363,7 @@ class ChatClient:
         # 发送给用户
         elif type == "user":
             num = 0
-            while not self.ExitFlag and self.UserFlag:
+            while not self.exit_flag and self.UserFlag:
                 if len(self.record_frames) > 0:
                     try:
                         # TODO
@@ -352,16 +382,17 @@ class ChatClient:
 
     # 播放声音
     def play(self):
+        global CurOutputModel
         f = wave.open("receive2.wav", "wb")
         f.setnchannels(self.audio_channels)
         f.setsampwidth(self.p.get_sample_size(self.audio_format))
         f.setframerate(self.rate)
         frames = []
-        while not self.ExitFlag:
+        while not self.exit_flag:
             if len(self.play_frames) > 0:
                 pfs = self.play_frames.pop()
                 for pf in pfs:
-                    if self.pc_output_play:
+                    if CurOutputModel:
                         # 系统默认的播放器播放
                         for pls in self.playing_streams["pc"]:
                             pls.write(pf)
@@ -385,7 +416,7 @@ class ChatClient:
     # 设置使用的信道
     def set_cur_channel(self, channel_id):
         logging.info("")
-        self.CurChannel = channel_id
+        self.cur_channel = channel_id
         return
 
     # 开始听某个客户端的消息
@@ -412,5 +443,5 @@ class ChatClient:
         return
 
     def exit(self):
-        self.ExitFlag = True
+        self.exit_flag = True
         self.s.close()

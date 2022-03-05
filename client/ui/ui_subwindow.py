@@ -51,6 +51,7 @@ class UiForm2(QDialog):
         # change_btn.setText("device")
         self.change_btn.clicked.connect(self.change_device)
         if self.change_btn.isChecked():
+
             self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'headset.svg')))
         else:
             self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'speaker.png')))
@@ -95,10 +96,13 @@ class UiForm2(QDialog):
         ex_btn.clicked.connect(self.exit)
 
     def change_volume(self, value):
+
         self.volume = value
+
 
     def change_device(self):
         if self.change_btn.isChecked():
+
             self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'headset.svg')))
         else:
             self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'speaker.png')))

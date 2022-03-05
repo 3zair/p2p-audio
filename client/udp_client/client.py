@@ -117,10 +117,10 @@ class ChatClient:
         self.play_frames = []
 
         # 脚踏板控制器
-        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        self.ser.setPort("COM3")
-        self.ser.dtr = True
-        self.ser.open()
+        # self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        # self.ser.setPort("COM3")
+        # self.ser.dtr = True
+        # self.ser.open()
 
         # 使用自带的pc设备播放音频
         self.pc_output_play = True

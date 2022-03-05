@@ -96,7 +96,9 @@ class UiForm2(QDialog):
         ex_btn.clicked.connect(self.exit)
 
     def change_volume(self, value):
+
         self.volume = value
+
 
     def change_device(self):
         if self.change_btn.isChecked():

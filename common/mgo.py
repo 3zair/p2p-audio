@@ -1,7 +1,7 @@
 import pymongo
 
 mgo_client = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")
-db = mgo_client["audio_win"]
+db = mgo_client["audio"]
 col_user = db["user"]
 col_channel = db["channel"]
 

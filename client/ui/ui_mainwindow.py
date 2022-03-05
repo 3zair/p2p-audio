@@ -4,7 +4,7 @@ import time
 
 from udp_client.client import ChatClient
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog
+from PyQt5.QtWidgets import QMessageBox, QSlider, QDialog, QFrame, QToolButton, QButtonGroup, QStackedLayout, QStatusBar
 from PyQt5.QtCore import Qt, QPropertyAnimation
 from PyQt5.QtGui import QColor
 from .ui_subwindow import UiForm2
@@ -43,28 +43,11 @@ class UIForm(object):
         self.top_frame_init(main_form)
         self.bottom_frame_init(main_form)
         self.user_frame_init(main_form)
-        # self.value_change_frame_init(main_form)
+        self.phone_book_change_init(main_form)
 
         # self.retranslateUi(main_form)
         QtCore.QMetaObject.connectSlotsByName(main_form)
-        threading.Thread(target=self.micro_phone_control).start()
-
-    # def change_volume(self, value):
-    #     self.volume = value
-    #
-    # def value_change_frame_init(self, main_form):
-        # value_change_frame = QtWidgets.QFrame(main_form)
-        # value_change_frame.setGeometry(QtCore.QRect(930, 10, 50, 120))
-        # value_change_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        # value_change_frame.setFrameShadow(QtWidgets.QFrame.Raised)
-        # value_change_frame.setObjectName("value_change_frame")
-        #
-        # self.volume_slider = QSlider(Qt.Horizontal, value_change_frame)
-        # self.volume_slider.setGeometry(QtCore.QRect(2, 2, 40, 100))
-        # self.volume_slider.valueChanged.connect(self.change_volume)
-        # self.volume_slider.setMaximum(32767)
-        # self.volume_slider.setPageStep(1024)
-        # self.volume_slider.valueChanged.connect(self.change_volume)
+        #threading.Thread(target=self.micro_phone_control).start()
 
     def btnClicked(self, main_form):
         btn = self.sender()
@@ -102,6 +85,7 @@ class UIForm(object):
         channels_frame.setObjectName("channel_frame")
 
         i = 0
+
         for channel_id in self.channels.keys():
             x = 0 + (i % 3) * 190
             y = 0 + int(i / 3) * 120
@@ -123,8 +107,9 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][0].setStyleSheet("background-color:rgb(245, 245, 245);")
             self.channel_push_buttons[channel_frame_name][0].setObjectName("pushButton_name_{}".format(channel_id))
             # self.channel_push_buttons[channel_frame_name][0].setCheckable(True)
-            self.channel_push_buttons[channel_frame_name][0].setText("通道_{}".format(channel_id))
-            self.channel_push_buttons[channel_frame_name][0].clicked.connect(lambda: self.btnClicked(main_form))
+            if channel_id < '9':
+                self.channel_push_buttons[channel_frame_name][0].setText("通道_{}".format(channel_id))
+                self.channel_push_buttons[channel_frame_name][0].clicked.connect(lambda: self.btnClicked(main_form))
 
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
@@ -134,8 +119,9 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][1].setStyleSheet("background-color:rgb(245, 245, 245);")
             self.channel_push_buttons[channel_frame_name][1].setCheckable(True)
             self.channel_push_buttons[channel_frame_name][1].setObjectName(channel_id)
-            self.channel_push_buttons[channel_frame_name][1].setText("RX")
-            self.channel_push_buttons[channel_frame_name][1].clicked.connect(self.channel_rx_click_handle)
+            if channel_id < '9':
+                self.channel_push_buttons[channel_frame_name][1].setText("RX")
+                self.channel_push_buttons[channel_frame_name][1].clicked.connect(self.channel_rx_click_handle)
             # TODO:某通道有消息时，对应的RX按钮变色
 
             # self.channel_push_buttons[channel_frame_name][1].animation.setKeyValueAt(0.1, QColor(0, 255, 0))
@@ -149,12 +135,12 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][2].setStyleSheet("background-color:rgb(245, 245, 245);")
             self.channel_push_buttons[channel_frame_name][2].setCheckable(True)
             self.channel_push_buttons[channel_frame_name][2].setObjectName(channel_id)
-            self.channel_push_buttons[channel_frame_name][2].setText("TX")
-            self.channel_push_buttons[channel_frame_name][2].clicked.connect(self.channel_tx_click_handle)
+            if channel_id < '9':
+                self.channel_push_buttons[channel_frame_name][2].setText("TX")
+                self.channel_push_buttons[channel_frame_name][2].clicked.connect(self.channel_tx_click_handle)
 
             print(channel_id, self.channels[channel_id])
 
-        # self.somebody_speaking(3)
 
     def top_frame_init(self, main_form):
         # top frame
@@ -172,6 +158,7 @@ class UIForm(object):
         top_1.setStyleSheet("background-color:rgb(111, 255, 248);")
         top_1.setObjectName("top_1")
         top_1.setText("更多功能")
+        top_1.clicked.connect(self.show_message)
 
         # top_2 = QtWidgets.QPushButton(top_frame)
         # top_2.setGeometry(QtCore.QRect(98, 0, 98, 95))
@@ -306,12 +293,54 @@ class UIForm(object):
     def user_frame_init(self, main_form):
         # todo
         user_frame = QtWidgets.QFrame(main_form)
-        user_frame.setGeometry(QtCore.QRect(600, 145, 400, 480))
+        user_frame.setGeometry(QtCore.QRect(600, 145, 400, 400))
         user_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         user_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         user_frame.setObjectName("user_frame")
 
-        user_1 = QtWidgets.QPushButton(user_frame)
+        # 创建堆叠布局
+        self.stacked_layout = QStackedLayout(user_frame)
+
+        # 第一个布局界面
+        self.main_frame1 = QtWidgets.QWidget()
+
+        rom_frame_1 = QFrame(self.main_frame1)
+        rom_frame_1.setGeometry(0, 0, 400, 400)
+        rom_frame_1.setFrameShape(QFrame.Panel)
+        rom_frame_1.setFrameShadow(QFrame.Raised)
+
+        # 第二个布局界面
+        self.main_frame2 = QtWidgets.QWidget()
+
+        rom_frame_2 = QFrame(self.main_frame2)
+        rom_frame_2.setGeometry(0, 0, 400, 400)
+        rom_frame_2.setFrameShape(QFrame.Panel)
+        rom_frame_2.setFrameShadow(QFrame.Raised)
+
+        # 第3个布局界面
+        self.main_frame3 = QtWidgets.QWidget()
+
+        rom_frame_3 = QFrame(self.main_frame3)
+        rom_frame_3.setGeometry(0, 0, 400, 400)
+        rom_frame_3.setFrameShape(QFrame.Panel)
+        rom_frame_3.setFrameShadow(QFrame.Raised)
+
+        # 第4个布局界面
+        self.main_frame4 = QtWidgets.QWidget()
+
+        rom_frame_4 = QFrame(self.main_frame4)
+        rom_frame_4.setGeometry(0, 0, 400, 400)
+        rom_frame_4.setFrameShape(QFrame.Panel)
+        rom_frame_4.setFrameShadow(QFrame.Raised)
+
+        # 把两个布局界面放进去
+        self.stacked_layout.addWidget(self.main_frame1)
+        self.stacked_layout.addWidget(self.main_frame2)
+        self.stacked_layout.addWidget(self.main_frame3)
+        self.stacked_layout.addWidget(self.main_frame4)
+
+        # 页面1的按钮
+        user_1 = QtWidgets.QPushButton(rom_frame_1)
         user_1.setGeometry(QtCore.QRect(0, 0, 90, 90))
         user_1.setMinimumSize(QtCore.QSize(90, 90))
         user_1.setMaximumSize(QtCore.QSize(90, 90))
@@ -320,13 +349,89 @@ class UIForm(object):
         user_1.setObjectName("top_1")
         user_1.setText("User 001")
 
+        user_2 = QtWidgets.QPushButton(rom_frame_2)
+        user_2.setGeometry(QtCore.QRect(0, 0, 90, 90))
+        user_2.setMinimumSize(QtCore.QSize(90, 90))
+        user_2.setMaximumSize(QtCore.QSize(90, 90))
+        user_2.setCheckable(True)
+        user_2.setStyleSheet("background-color:rgb(245, 245, 245);")
+        user_2.setObjectName("top_2")
+        user_2.setText("User 002")
+
+    def phone_book_change_init(self, main_form):
+        self.frame_tool = QFrame(main_form)
+        self.frame_tool.setObjectName("frame_tool")
+        self.frame_tool.setGeometry(QtCore.QRect(600, 545, 400, 80))
+        self.frame_tool.setStyleSheet("border-color:rgb(196, 255, 216);")
+        self.frame_tool.setFrameShape(QFrame.Panel)
+        self.frame_tool.setFrameShadow(QFrame.Raised)
+
+        self.window1_btn = QToolButton(self.frame_tool)
+        self.window1_btn.setStyleSheet(
+            "background-color:rgb(196, 255, 216);")
+        # self.window1_btn.setStyleSheet(
+        #     "background-color:rgb(196, 255, 216);border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+        self.window1_btn.setCheckable(True)
+        self.window1_btn.setText("电话簿1")
+        self.window1_btn.setObjectName("menu_btn")
+        self.window1_btn.resize(100, 80)
+        self.window1_btn.clicked.connect(self.phone_book_click_1)
+        self.window1_btn.setAutoRaise(True)
+        self.window1_btn.setChecked(True)
+
+        self.window2_btn = QToolButton(self.frame_tool)
+        self.window2_btn.setStyleSheet(
+            "background-color:rgb(196, 255, 216);")
+        # self.window2_btn.setStyleSheet(
+        #     "background-color:rgb(196, 255, 216);border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+        self.window2_btn.setCheckable(True)
+        self.window2_btn.setText("电话簿2")
+        self.window2_btn.setObjectName("menu_btn")
+        self.window2_btn.resize(100, 80)
+        self.window2_btn.move(100, 0)
+        self.window2_btn.clicked.connect(self.phone_book_click_2)
+        self.window2_btn.setAutoRaise(True)
+
+        self.window3_btn = QToolButton(self.frame_tool)
+        self.window3_btn.setStyleSheet(
+            "background-color:rgb(196, 255, 216);")
+        # self.window3_btn.setStyleSheet(
+        #     "background-color:rgb(196, 255, 216);border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+        self.window3_btn.setCheckable(True)
+        self.window3_btn.setText("电话簿3")
+        self.window3_btn.setObjectName("menu_btn")
+        self.window3_btn.resize(100, 80)
+        self.window3_btn.move(200, 0)
+        self.window3_btn.clicked.connect(self.phone_book_click_3)
+        self.window3_btn.setAutoRaise(True)
+
+        self.window4_btn = QToolButton(self.frame_tool)
+        self.window4_btn.setStyleSheet(
+            "background-color:rgb(196, 255, 216);")
+        # self.window4_btn.setStyleSheet(
+        #     "background-color:rgb(196, 255, 216);border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+        self.window4_btn.setCheckable(True)
+        self.window4_btn.setText("电话簿4")
+        self.window4_btn.setObjectName("menu_btn")
+        self.window4_btn.resize(100, 80)
+        self.window4_btn.move(300, 0)
+        self.window4_btn.clicked.connect(self.phone_book_click_4)
+        self.window4_btn.setAutoRaise(True)
+
+        self.btn_group = QButtonGroup(self.frame_tool)
+        self.btn_group.addButton(self.window1_btn, 1)
+        self.btn_group.addButton(self.window2_btn, 2)
+        self.btn_group.addButton(self.window3_btn, 3)
+        self.btn_group.addButton(self.window4_btn, 4)
+
     def show_message(self):
-        QMessageBox.information(self, "标题", "我很喜欢学习python",
+        QMessageBox.information(self, "标题", "更多功能正在开发中",
                                 QMessageBox.Yes)
 
     def show_error_message(self, err_msg):
         QMessageBox.critical(self, "错误", err_msg)
 
+    # 系统退出按钮点击事件
     def exit_click_handle(self):
         reply = QMessageBox.question(self, '警告', "系统将退出，是否确认?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
@@ -334,11 +439,13 @@ class UIForm(object):
             self.client.exit()
             del self.client
 
+    # 通道的rx按钮的点击事件
     def channel_rx_click_handle(self):
         rx_button = self.sender()
         checked = rx_button.isChecked()
         channel_id = rx_button.objectName()
         if not checked and channel_id in self.client.user["listening_channels"]:
+            rx_button.setStyleSheet("background-color:rgb(245, 245, 245);")
             self.client.del_listening_channel(channel_id)
             # 取消
             tx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][2]
@@ -354,8 +461,10 @@ class UIForm(object):
                         self.show_error_message("通道{}释放失败".format(channel_id))
 
         if checked and channel_id not in self.client.user["listening_channels"]:
+            rx_button.setStyleSheet("background-color:rgb(255, 255, 0);")
             self.client.add_listening_channel(channel_id)
 
+    # 通道的tx按钮点击时间
     def channel_tx_click_handle(self):
         tx_button = self.sender()
         checked = tx_button.isChecked()
@@ -367,9 +476,11 @@ class UIForm(object):
             if self.client.CurChannel is not None:
                 ret = self.cancel_occupy_channel(cur_channel)
                 if ret is True:
+                    self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setStyleSheet("background-color:rgb(245, 245, 245);")
                     self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setChecked(False)
                 else:
                     # 当前占用的通道取消失败
+                    tx_button.setStyleSheet("background-color:rgb(255, 255, 0);")
                     self.client.CurChannel = cur_channel
                     tx_button.setChecked(False)
                     logging.error("释放channel {} err: {}".format(cur_channel, ret))
@@ -386,6 +497,7 @@ class UIForm(object):
                     self.client.add_listening_channel(channel_id)
                 if not checked:
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setChecked(True)
+                    self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setStyleSheet("background-color:rgb(255, 255, 0);")
             else:
                 tx_button.setChecked(False)
                 logging.error("choose_channel err: {}".format(ret))
@@ -395,14 +507,17 @@ class UIForm(object):
             if self.client.CurChannel is not None:
                 ret = self.cancel_occupy_channel(channel_id)
                 if ret is True:
+                    self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setStyleSheet("background-color:rgb(245, 245, 245);")
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setChecked(False)
                 else:
                     # 当前占用的通道取消失败
+                    tx_button.setStyleSheet("background-color:rgb(255, 255, 0);")
                     self.client.CurChannel = channel_id
                     tx_button.setChecked(True)
                     logging.error("取消占用channel {} err: {}".format(channel_id, ret))
                     self.show_error_message("通道{}释放失败".format(channel_id))
 
+    # 取消占用通道
     def cancel_occupy_channel(self, channel_id, retry=3):
         cancel_ret = self.client.cancel_channel(channel_id)
         i = 0
@@ -456,6 +571,22 @@ class UIForm(object):
         self.ani.setLoopCount(20)
         self.ani.setStartValue(QColor(245, 245, 245))
         self.ani.setEndValue(QColor(255, 255, 0))
+
+    def phone_book_click_1(self):
+        if self.stacked_layout.currentIndex() != 0:
+            self.stacked_layout.setCurrentIndex(0)
+
+    def phone_book_click_2(self):
+        if self.stacked_layout.currentIndex() != 1:
+            self.stacked_layout.setCurrentIndex(1)
+
+    def phone_book_click_3(self):
+        if self.stacked_layout.currentIndex() != 2:
+            self.stacked_layout.setCurrentIndex(2)
+
+    def phone_book_click_4(self):
+        if self.stacked_layout.currentIndex() != 3:
+            self.stacked_layout.setCurrentIndex(3)
 
     def somebody_speaking(self, channel_id):
         self.animation(channel_id)

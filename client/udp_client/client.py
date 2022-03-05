@@ -51,7 +51,6 @@ class ChatClient:
             name: 称呼
             ip: IP地址
             port: udp端口
-            level: 等级
             listening_channels: [channel_id]  所监听的通道
             listening_clients: [uid] 所监听的客户端
         """
@@ -111,27 +110,23 @@ class ChatClient:
             self.playing_streams["usb"].append(
                 self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                             output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
-        # self.playing_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-        #                                   output=True, frames_per_buffer=self.chunk_size)
 
         self.record_frames = []
         self.play_frames = []
 
         # 脚踏板控制器
-        # self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        # self.ser.setPort("COM3")
-        # self.ser.dtr = True
-        # self.ser.open()
+        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        self.ser.setPort("COM3")
+        self.ser.dtr = True
+        self.ser.open()
 
         # 使用自带的pc设备播放音频
-        self.pc_output_play = True
+        self.pc_output_play = False
 
         # 接收udp消息
         threading.Thread(target=self.receive_server_data).start()
         # 处理udp语音消息
         threading.Thread(target=self.play).start()
-        # for input_id in self.devices["inputs"]:
-        #     logging.info("启动：{}".format(input_id))
 
     def Init(self, ip, port):
         # TODO read from conf
@@ -367,9 +362,6 @@ class ChatClient:
                 pfs = self.play_frames.pop()
                 for pf in pfs:
                     if self.pc_output_play:
-                        # self.playing_stream.write(pf)
-                        # frames.append(pf)
-
                         # 系统默认的播放器播放
                         for pls in self.playing_streams["pc"]:
                             pls.write(pf)

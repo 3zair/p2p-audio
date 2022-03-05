@@ -25,6 +25,7 @@ class UIForm(object):
         self.waring_flags = [False, False, False]
 
     def setup_ui(self, main_form):
+
         print(self.client.user)
         main_form.setObjectName("main_form")
         main_form.resize(1024, 768)
@@ -43,7 +44,7 @@ class UIForm(object):
 
         # self.retranslateUi(main_form)
         QtCore.QMetaObject.connectSlotsByName(main_form)
-        #threading.Thread(target=self.micro_phone_control).start()
+        threading.Thread(target=self.micro_phone_control).start()
 
     def btnClicked(self, main_form):
         btn = self.sender()

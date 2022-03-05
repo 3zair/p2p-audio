@@ -14,7 +14,7 @@ from common.mgo import col_user, col_channel
 
 from .volume_control_utils import MyAudioUtilities
 from comtypes import CLSCTX_ALL
-from pycaw.pycaw import IAudioEndpointVolume
+from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
 from ctypes import POINTER, cast
 
 # 控制音量
@@ -30,11 +30,13 @@ def output_device_init_for_volume_control():
     device_list = MyAudioUtilities.GetAllDevices()
     i = 0
     for device in device_list:
-        if device.FriendlyName.find("扬声器") >= 0:
-            if device.FriendlyName.find("USB") >= 0:
-                OutputDevices["usb"].append(device)
-            else:
-                OutputDevices["pc"].append(device)
+        if device.state == AudioDeviceState.Active:
+            if device.FriendlyName.find("扬声器") >= 0:
+                if device.FriendlyName.find("USB") >= 0:
+                    OutputDevices["usb"].append(device)
+                    print(device)
+                else:
+                    OutputDevices["pc"].append(device)
         i += 1
 
 
@@ -62,7 +64,7 @@ def set_output_volume_value(device, value):
 
 
 def change_output_volume(channel_id, device, usb_volume=-1, pc_volume=-1):
-    global ChannelsOutputVolumeConf, CurChannel,CurOutputModel
+    global ChannelsOutputVolumeConf, CurChannel, CurOutputModel
     if channel_id in ChannelsOutputVolumeConf:
         ChannelsOutputVolumeConf[channel_id][0] = device
         CurOutputModel = device
@@ -128,7 +130,7 @@ class ChatClient:
             "listening_channels": [],  # [channel_id]  所监听的通道
             "listening_clients": []  # [uid] 所监听的客户端
         }
-        self.ClientsInfo = {}  # 客户端的信息
+        self.users_info = {}  # 客户端的信息
 
         # users
         users = self.col_user.find()
@@ -137,10 +139,12 @@ class ChatClient:
                 self.user["name"] = u["name"]
                 self.user["id"] = str(u["_id"])
             else:
-                self.ClientsInfo[str(u["_id"])] = {
+                self.users_info[str(u["_id"])] = {
+                    "id" : str(u["_id"]),
                     "name": u["name"],
                     "ip": u["ip"],
-                    "port": u["port"],
+                    "port": int(u["port"]),
+                    "page": int(u["page"])
                 }
         # channels
         self.ChannelsInfo = {}  # channel的信息
@@ -174,7 +178,8 @@ class ChatClient:
         # 输出设备初始化（用于调节音量）
         output_device_init_for_volume_control()
 
-        self.record_frames = []
+        self.record_frames_channel = []
+        self.record_frames_user = []
         self.play_frames = []
         # 记录输入设备状态
         self.input_device_flags = {}
@@ -225,17 +230,19 @@ class ChatClient:
                 msg_body = json.loads(msg.getBody())
 
                 # TODO 获取当前监听的的客户端,放入播放队列
-                # if msg.msgType == 101 and msg_body["from"] in User["listening_clients"]:
-                #     logging.info("【监听客户端】播放，name: {}".format(msg_body["from"]))
-                #
-                #     client_orders.append(msg.msgNum)
-                #     client_buffer[msg.msgNum] = msg.getVoiceData()
-                #     if len(client_orders) == 20:
-                #         client_orders.sort()
-                #         for t in client_orders:
-                #             self.play_frames.append(client_buffer[t])
-                #     client_orders = []
-                #     client_buffer = {}
+                if msg.msgType == 101 and msg_body["uid"] in self.user["listening_channels"]:
+                    logging.info("【监听客户端】播放，name: {}".format(msg_body["uid"]))
+                    client_orders.append(msg.msgNum)
+                    client_buffer[msg.msgNum] = msg.getVoiceData()
+                    if len(channel_orders) == 10:
+                        channel_orders.sort()
+                        play_frame_body = []
+                        for t in channel_orders:
+                            # 放入播放队列
+                            play_frame_body.append(channel_buffer[t])
+                        self.play_frames.append(play_frame_body)
+                        channel_orders = []
+                        channel_buffer = {}
 
                 # TODO 是当前监听的信道，放入播放队列
                 if msg.msgType == 100 and msg_body["channel_id"] in self.user["listening_channels"]:
@@ -309,10 +316,10 @@ class ChatClient:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
             if self.input_device_flags[device_id]:
-                self.record_frames.append(data)
-                if len(self.record_frames) > 100:
+                self.record_frames_channel.append(data)
+                if len(self.record_frames_channel) > 100:
                     # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
-                    self.record_frames = []
+                    self.record_frames_channel = []
 
         recording_stream.close()
         logging.info("stop send_voice_data.")
@@ -333,6 +340,7 @@ class ChatClient:
     # 将声音数据发送到客户端上 101
     def send_to_user(self, uid):
         self.UserFlag = True
+
         threading.Thread(target=self.send_voice_data, args=("user", uid)).start()
 
     # 停止声音数据发送到客户端上 101
@@ -346,11 +354,11 @@ class ChatClient:
         if type == "channel":
             num = 0
             while not self.exit_flag and self.ChannelFlag:
-                if len(self.record_frames) > 0:
+                if len(self.record_frames_channel) > 0:
                     try:
                         body = {"from": self.user["id"], "channel_id": to_id}
                         msg = UdpMsg(msgType=100, num=num, body=json.dumps(body),
-                                     voiceData=self.record_frames.pop())
+                                     voiceData=self.record_frames_channel.pop())
                         self.s.sendto(msg.getMsg(),
                                       (self.ChannelsInfo[to_id]["ip"], self.ChannelsInfo[to_id]["port"]))
                         logging.info("send len{} num{} data:{}".format(len(msg.voiceData), num, msg.voiceData))
@@ -364,14 +372,13 @@ class ChatClient:
         elif type == "user":
             num = 0
             while not self.exit_flag and self.UserFlag:
-                if len(self.record_frames) > 0:
+                if len(self.record_frames_user) > 0:
                     try:
                         # TODO
-                        body = {"from": self.user["id"]}
+                        body = {"uid": self.user["id"]}
                         msg = UdpMsg(msgType=101, num=num, body=json.dumps(body),
-                                     voiceData=self.record_frames.pop())
-                        self.s.sendto(msg.getMsg(),
-                                      (self.ClientsInfo[to_id]["ip"], self.ClientsInfo[to_id]["port"]))
+                                     voiceData=self.record_frames_channel.pop())
+                        self.s.sendto(msg.getMsg(), (self.users_info[to_id]["ip"], self.users_info[to_id]["port"]))
                         num += 1
                         # 最大标号100000
                         if num == 100000:

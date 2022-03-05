@@ -17,7 +17,7 @@ class UIForm(object):
         self.channel_push_buttons = {}
         self.channel_frames = {}
         self.client = ChatClient(get_host(), get_port())
-        self.users = self.client.ClientsInfo
+        self.users = self.client.users_info
         self.channels = self.client.ChannelsInfo
         self.volume = 50
         self.chile_Win = None
@@ -130,7 +130,8 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][0].setGeometry(QtCore.QRect(0, 0, 110, 120))
             self.channel_push_buttons[channel_frame_name][0].setMinimumSize(QtCore.QSize(110, 120))
             self.channel_push_buttons[channel_frame_name][0].setMaximumSize(QtCore.QSize(110, 120))
-            self.channel_push_buttons[channel_frame_name][0].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
+            self.channel_push_buttons[channel_frame_name][0].setStyleSheet(
+                "background-color:rgb(210, 210, 210);font-size:15px;")
             self.channel_push_buttons[channel_frame_name][0].setObjectName("pushButton_name_{}".format(channel_id))
             # self.channel_push_buttons[channel_frame_name][0].setCheckable(True)
 
@@ -140,13 +141,13 @@ class UIForm(object):
             else:
                 self.channel_push_buttons[channel_frame_name][0].setEnabled(False)
 
-
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
             self.channel_push_buttons[channel_frame_name][1].setGeometry(QtCore.QRect(110, 0, 80, 60))
             self.channel_push_buttons[channel_frame_name][1].setMinimumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][1].setMaximumSize(QtCore.QSize(80, 60))
-            self.channel_push_buttons[channel_frame_name][1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
+            self.channel_push_buttons[channel_frame_name][1].setStyleSheet(
+                "background-color:rgb(210, 210, 210);font-size:15px;")
 
             self.channel_push_buttons[channel_frame_name][1].setObjectName(channel_id)
 
@@ -161,13 +162,13 @@ class UIForm(object):
 
             # self.channel_push_buttons[channel_frame_name][1].animation.setKeyValueAt(0.1, QColor(0, 255, 0))
 
-
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
             self.channel_push_buttons[channel_frame_name][2].setGeometry(QtCore.QRect(110, 60, 80, 60))
             self.channel_push_buttons[channel_frame_name][2].setMinimumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][2].setMaximumSize(QtCore.QSize(80, 60))
-            self.channel_push_buttons[channel_frame_name][2].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
+            self.channel_push_buttons[channel_frame_name][2].setStyleSheet(
+                "background-color:rgb(210, 210, 210);font-size:15px;")
             self.channel_push_buttons[channel_frame_name][2].setObjectName(channel_id)
 
             self.channel_push_buttons[channel_frame_name][2].setText("TX")
@@ -392,102 +393,139 @@ class UIForm(object):
 
         # 创建堆叠布局
         self.stacked_layout = QStackedLayout(user_frame)
+        self.user_btns = []
+        for page in range(4):
+            main_frame = QtWidgets.QWidget()
+            rom_frame = QFrame(main_frame)
+            rom_frame.setGeometry(0, 0, 407, 428)
+            rom_frame.setFrameShape(QFrame.Panel)
+            rom_frame.setFrameShadow(QFrame.Raised)
 
-        # 第一个布局界面
-        self.main_frame1 = QtWidgets.QWidget()
-
-        rom_frame_1 = QFrame(self.main_frame1)
-        rom_frame_1.setGeometry(0, 0, 407, 428)
-        rom_frame_1.setFrameShape(QFrame.Panel)
-        rom_frame_1.setFrameShadow(QFrame.Raised)
-
-        # 第二个布局界面
-        self.main_frame2 = QtWidgets.QWidget()
-
-        rom_frame_2 = QFrame(self.main_frame2)
-        rom_frame_2.setGeometry(0, 0, 407, 428)
-        rom_frame_2.setFrameShape(QFrame.Panel)
-        rom_frame_2.setFrameShadow(QFrame.Raised)
-
-        # 第3个布局界面
-        self.main_frame3 = QtWidgets.QWidget()
-
-        rom_frame_3 = QFrame(self.main_frame3)
-        rom_frame_3.setGeometry(0, 0, 407, 428)
-        rom_frame_3.setFrameShape(QFrame.Panel)
-        rom_frame_3.setFrameShadow(QFrame.Raised)
-
-        # 第4个布局界面
-        self.main_frame4 = QtWidgets.QWidget()
-
-        rom_frame_4 = QFrame(self.main_frame4)
-        rom_frame_4.setGeometry(0, 0, 407, 428)
-        rom_frame_4.setFrameShape(QFrame.Panel)
-        rom_frame_4.setFrameShadow(QFrame.Raised)
-
-        # 把两个布局界面放进去
-        self.stacked_layout.addWidget(self.main_frame1)
-        self.stacked_layout.addWidget(self.main_frame2)
-        self.stacked_layout.addWidget(self.main_frame3)
-        self.stacked_layout.addWidget(self.main_frame4)
-
-        # user_btn初始化
-        self.user_btns_1 = []
-        self.user_btns_2 = []
-        self.user_btns_3 = []
-        self.user_btns_4 = []
-        for phone_num in range(1, 5):
-            x = 0
-            y = 0
+            self.stacked_layout.addWidget(main_frame)
+            page_user_btns = []
             i = 0
             for user_num in range(1, 17):
                 x = 0 + (i % 4) * 100
                 y = 14 + int(i / 4) * 100
-                if phone_num == 1:
-                    self.user_btns_1.append(QtWidgets.QPushButton(rom_frame_1))
-                    self.user_btns_1[len(self.user_btns_1)-1].setGeometry(QtCore.QRect(x, y, 90, 90))
-                    self.user_btns_1[len(self.user_btns_1)-1].setMinimumSize(QtCore.QSize(90, 90))
-                    self.user_btns_1[len(self.user_btns_1)-1].setMaximumSize(QtCore.QSize(90, 90))
-                    self.user_btns_1[len(self.user_btns_1)-1].setCheckable(True)
-                    self.user_btns_1[len(self.user_btns_1)-1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
-                    self.user_btns_1[len(self.user_btns_1)-1].setObjectName("top_{}_{}".format(phone_num, user_num))
-                    self.user_btns_1[len(self.user_btns_1)-1].setText("User_{}_{}".format(phone_num, user_num))
-                    if i > 11:
-                        self.user_btns_1[len(self.user_btns_1)-1].setEnabled(False)
-                elif phone_num == 2:
-                    self.user_btns_2.append(QtWidgets.QPushButton(rom_frame_2))
-                    self.user_btns_2[len(self.user_btns_2) - 1].setGeometry(QtCore.QRect(x, y, 90, 90))
-                    self.user_btns_2[len(self.user_btns_2) - 1].setMinimumSize(QtCore.QSize(90, 90))
-                    self.user_btns_2[len(self.user_btns_2) - 1].setMaximumSize(QtCore.QSize(90, 90))
-                    self.user_btns_2[len(self.user_btns_2) - 1].setCheckable(True)
-                    self.user_btns_2[len(self.user_btns_2) - 1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
-                    self.user_btns_2[len(self.user_btns_2) - 1].setObjectName("top_{}_{}".format(phone_num, user_num))
-                    self.user_btns_2[len(self.user_btns_2) - 1].setText("User_{}_{}".format(phone_num, user_num))
-                    if i > 11:
-                        self.user_btns_2[len(self.user_btns_2)-1].setEnabled(False)
-                elif phone_num == 3:
-                    self.user_btns_3.append(QtWidgets.QPushButton(rom_frame_3))
-                    self.user_btns_3[len(self.user_btns_3) - 1].setGeometry(QtCore.QRect(x, y, 90, 90))
-                    self.user_btns_3[len(self.user_btns_3) - 1].setMinimumSize(QtCore.QSize(90, 90))
-                    self.user_btns_3[len(self.user_btns_3) - 1].setMaximumSize(QtCore.QSize(90, 90))
-                    self.user_btns_3[len(self.user_btns_3) - 1].setCheckable(True)
-                    self.user_btns_3[len(self.user_btns_3) - 1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
-                    self.user_btns_3[len(self.user_btns_3) - 1].setObjectName("top_{}_{}".format(phone_num, user_num))
-                    self.user_btns_3[len(self.user_btns_3) - 1].setText("User_{}_{}".format(phone_num, user_num))
-                    if i > 11:
-                        self.user_btns_3[len(self.user_btns_3)-1].setEnabled(False)
-                else:
-                    self.user_btns_4.append(QtWidgets.QPushButton(rom_frame_4))
-                    self.user_btns_4[len(self.user_btns_4) - 1].setGeometry(QtCore.QRect(x, y, 90, 90))
-                    self.user_btns_4[len(self.user_btns_4) - 1].setMinimumSize(QtCore.QSize(90, 90))
-                    self.user_btns_4[len(self.user_btns_4) - 1].setMaximumSize(QtCore.QSize(90, 90))
-                    self.user_btns_4[len(self.user_btns_4) - 1].setCheckable(True)
-                    self.user_btns_4[len(self.user_btns_4) - 1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
-                    self.user_btns_4[len(self.user_btns_4) - 1].setObjectName("top_{}_{}".format(phone_num, user_num))
-                    self.user_btns_4[len(self.user_btns_4) - 1].setText("User_{}_{}".format(phone_num, user_num))
-                    if i > 11:
-                        self.user_btns_4[len(self.user_btns_4)-1].setEnabled(False)
+                user_btn = QtWidgets.QPushButton(rom_frame)
+                user_btn.setGeometry(QtCore.QRect(x, y, 90, 90))
+                user_btn.setMinimumSize(QtCore.QSize(90, 90))
+                user_btn.setMaximumSize(QtCore.QSize(90, 90))
+                user_btn.setCheckable(True)
+                user_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
+                user_btn.setEnabled(False)
+                page_user_btns.append(user_btn)
                 i += 1
+            self.user_btns.append(page_user_btns)
+
+        logging.info("user:{} l:{}".format(self.client.users_info, len(self.user_btns)))
+        for user in self.client.users_info.values():
+            page_id = user["page"]
+
+            if 3 >= page_id >= 0:
+                for k in range(len(self.user_btns[page_id])):
+                    if not self.user_btns[page_id][k].isEnabled():
+                        self.user_btns[page_id][k].setText(user["name"])
+                        self.user_btns[page_id][k].setObjectName(user["id"])
+                        self.user_btns[page_id][k].setEnabled(True)
+                        self.user_btns[page_id][k].clicked.connect(self.user_click_handle)
+                        break
+
+        # # 第一个布局界面
+        # self.main_frame1 = QtWidgets.QWidget()
+        #
+        # rom_frame = QFrame(self.main_frame1)
+        # rom_frame.setGeometry(0, 0, 407, 428)
+        # rom_frame.setFrameShape(QFrame.Panel)
+        # rom_frame.setFrameShadow(QFrame.Raised)
+        #
+        # # 第二个布局界面
+        # self.main_frame2 = QtWidgets.QWidget()
+        #
+        # rom_frame_2 = QFrame(self.main_frame2)
+        # rom_frame_2.setGeometry(0, 0, 407, 428)
+        # rom_frame_2.setFrameShape(QFrame.Panel)
+        # rom_frame_2.setFrameShadow(QFrame.Raised)
+        #
+        # # 第3个布局界面
+        # self.main_frame3 = QtWidgets.QWidget()
+        #
+        # rom_frame_3 = QFrame(self.main_frame3)
+        # rom_frame_3.setGeometry(0, 0, 407, 428)
+        # rom_frame_3.setFrameShape(QFrame.Panel)
+        # rom_frame_3.setFrameShadow(QFrame.Raised)
+        #
+        # # 第4个布局界面
+        # self.main_frame4 = QtWidgets.QWidget()
+        #
+        # rom_frame_4 = QFrame(self.main_frame4)
+        # rom_frame_4.setGeometry(0, 0, 407, 428)
+        # rom_frame_4.setFrameShape(QFrame.Panel)
+        # rom_frame_4.setFrameShadow(QFrame.Raised)
+        #
+        # # 把两个布局界面放进去
+        # self.stacked_layout.addWidget(self.main_frame1)
+        # self.stacked_layout.addWidget(self.main_frame2)
+        # self.stacked_layout.addWidget(self.main_frame3)
+        # self.stacked_layout.addWidget(self.main_frame4)
+
+        # user_btn初始化
+        # self.user_btns_1 = []
+        # self.user_btns_2 = []
+        # self.user_btns_3 = []
+        # self.user_btns_4 = []
+        # for phone_num in range(1, 5):
+        #     x = 0
+        #     y = 0
+        #     i = 0
+        #     for user_num in range(1, 17):
+        #         x = 0 + (i % 4) * 100
+        #         y = 14 + int(i / 4) * 100
+        #         if phone_num == 1:
+        #             self.user_btns_1.append(QtWidgets.QPushButton(rom_frame))
+        #             self.user_btns_1[len(self.user_btns_1)-1].setGeometry(QtCore.QRect(x, y, 90, 90))
+        #             self.user_btns_1[len(self.user_btns_1)-1].setMinimumSize(QtCore.QSize(90, 90))
+        #             self.user_btns_1[len(self.user_btns_1)-1].setMaximumSize(QtCore.QSize(90, 90))
+        #             self.user_btns_1[len(self.user_btns_1)-1].setCheckable(True)
+        #             self.user_btns_1[len(self.user_btns_1)-1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
+        #             self.user_btns_1[len(self.user_btns_1)-1].setObjectName("top_{}_{}".format(phone_num, user_num))
+        #             self.user_btns_1[len(self.user_btns_1)-1].setText("User_{}_{}".format(phone_num, user_num))
+        #             if i > 11:
+        #                 self.user_btns_1[len(self.user_btns_1)-1].setEnabled(False)
+        #         elif phone_num == 2:
+        #             self.user_btns_2.append(QtWidgets.QPushButton(rom_frame_2))
+        #             self.user_btns_2[len(self.user_btns_2) - 1].setGeometry(QtCore.QRect(x, y, 90, 90))
+        #             self.user_btns_2[len(self.user_btns_2) - 1].setMinimumSize(QtCore.QSize(90, 90))
+        #             self.user_btns_2[len(self.user_btns_2) - 1].setMaximumSize(QtCore.QSize(90, 90))
+        #             self.user_btns_2[len(self.user_btns_2) - 1].setCheckable(True)
+        #             self.user_btns_2[len(self.user_btns_2) - 1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
+        #             self.user_btns_2[len(self.user_btns_2) - 1].setObjectName("top_{}_{}".format(phone_num, user_num))
+        #             self.user_btns_2[len(self.user_btns_2) - 1].setText("User_{}_{}".format(phone_num, user_num))
+        #             if i > 11:
+        #                 self.user_btns_2[len(self.user_btns_2)-1].setEnabled(False)
+        #         elif phone_num == 3:
+        #             self.user_btns_3.append(QtWidgets.QPushButton(rom_frame_3))
+        #             self.user_btns_3[len(self.user_btns_3) - 1].setGeometry(QtCore.QRect(x, y, 90, 90))
+        #             self.user_btns_3[len(self.user_btns_3) - 1].setMinimumSize(QtCore.QSize(90, 90))
+        #             self.user_btns_3[len(self.user_btns_3) - 1].setMaximumSize(QtCore.QSize(90, 90))
+        #             self.user_btns_3[len(self.user_btns_3) - 1].setCheckable(True)
+        #             self.user_btns_3[len(self.user_btns_3) - 1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
+        #             self.user_btns_3[len(self.user_btns_3) - 1].setObjectName("top_{}_{}".format(phone_num, user_num))
+        #             self.user_btns_3[len(self.user_btns_3) - 1].setText("User_{}_{}".format(phone_num, user_num))
+        #             if i > 11:
+        #                 self.user_btns_3[len(self.user_btns_3)-1].setEnabled(False)
+        #         else:
+        #             self.user_btns_4.append(QtWidgets.QPushButton(rom_frame_4))
+        #             self.user_btns_4[len(self.user_btns_4) - 1].setGeometry(QtCore.QRect(x, y, 90, 90))
+        #             self.user_btns_4[len(self.user_btns_4) - 1].setMinimumSize(QtCore.QSize(90, 90))
+        #             self.user_btns_4[len(self.user_btns_4) - 1].setMaximumSize(QtCore.QSize(90, 90))
+        #             self.user_btns_4[len(self.user_btns_4) - 1].setCheckable(True)
+        #             self.user_btns_4[len(self.user_btns_4) - 1].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
+        #             self.user_btns_4[len(self.user_btns_4) - 1].setObjectName("top_{}_{}".format(phone_num, user_num))
+        #             self.user_btns_4[len(self.user_btns_4) - 1].setText("User_{}_{}".format(phone_num, user_num))
+        #             if i > 11:
+        #                 self.user_btns_4[len(self.user_btns_4)-1].setEnabled(False)
+        #         i += 1
 
     # 电话簿换页frame初始化
     def phone_book_change_init(self, main_form):
@@ -499,7 +537,8 @@ class UIForm(object):
         self.frame_tool.setFrameShadow(QFrame.Raised)
 
         self.window1_btn = QToolButton(self.frame_tool)
-        self.window1_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+        self.window1_btn.setStyleSheet(
+            "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
         self.window1_btn.setCheckable(True)
         self.window1_btn.setText("PHONE 1")
         self.window1_btn.setObjectName("menu_btn")
@@ -601,7 +640,8 @@ class UIForm(object):
             if self.client.cur_channel is not None:
                 ret = self.cancel_occupy_channel(cur_channel)
                 if ret is True:
-                    self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setStyleSheet("background-color:rgb(210, 210, 210);")
+                    self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setStyleSheet(
+                        "background-color:rgb(210, 210, 210);")
                     self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setChecked(False)
                 else:
                     # 当前占用的通道取消失败
@@ -622,7 +662,8 @@ class UIForm(object):
                     self.client.add_listening_channel(channel_id)
                 if not checked:
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setChecked(True)
-                    self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setStyleSheet("background-color:rgb(128, 255, 128);")
+                    self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setStyleSheet(
+                        "background-color:rgb(128, 255, 128);")
             else:
                 tx_button.setChecked(False)
                 logging.error("choose_channel err: {}".format(ret))
@@ -632,7 +673,8 @@ class UIForm(object):
             if self.client.cur_channel is not None:
                 ret = self.cancel_occupy_channel(channel_id)
                 if ret is True:
-                    self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setStyleSheet("background-color:rgb(210, 210, 210);")
+                    self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setStyleSheet(
+                        "background-color:rgb(210, 210, 210);")
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setChecked(False)
                 else:
                     # 当前占用的通道取消失败
@@ -641,6 +683,14 @@ class UIForm(object):
                     tx_button.setChecked(True)
                     logging.error("取消占用channel {} err: {}".format(channel_id, ret))
                     self.show_error_message("通道{}释放失败".format(channel_id))
+    def user_click_handle(self):
+        user_btn = self.sender()
+        checked = user_btn.isChecked()
+        user_id = user_btn.objectName()
+        if checked:
+            self.client.send_to_user(user_id)
+        else:
+            self.client.stop_send_to_user()
 
     # 取消占用通道
     def cancel_occupy_channel(self, channel_id, retry=3):
@@ -656,8 +706,8 @@ class UIForm(object):
     # 麦克风控制
     def micro_phone_control(self):
         while self.client and not self.client.exit_flag:
-            print(" DTR:", self.client.ser.dtr, " CD:", self.client.ser.cd, " DSR:", self.client.ser.dsr, " CTS:",
-                  self.client.ser.cts)
+            # print(" DTR:", self.client.ser.dtr, " CD:", self.client.ser.cd, " DSR:", self.client.ser.dsr, " CTS:",
+            #       self.client.ser.cts)
             # level 1
             if self.client.ser.cd:
                 if len(self.client.devices["inputs"]) < 1:
@@ -703,8 +753,10 @@ class UIForm(object):
         if self.stacked_layout.currentIndex() != 0:
             self.stacked_layout.setCurrentIndex(0)
             if self.window1_btn.isChecked() == True:
-                self.window1_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window2_btn.setStyleSheet("background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+                self.window1_btn.setStyleSheet(
+                    "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+                self.window2_btn.setStyleSheet(
+                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
                 self.window3_btn.setStyleSheet(
                     "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
                 self.window4_btn.setStyleSheet(
@@ -715,8 +767,10 @@ class UIForm(object):
         if self.stacked_layout.currentIndex() != 1:
             self.stacked_layout.setCurrentIndex(1)
             if self.window2_btn.isChecked() == True:
-                self.window2_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window1_btn.setStyleSheet("background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+                self.window2_btn.setStyleSheet(
+                    "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+                self.window1_btn.setStyleSheet(
+                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
                 self.window3_btn.setStyleSheet(
                     "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
                 self.window4_btn.setStyleSheet(
@@ -727,8 +781,10 @@ class UIForm(object):
         if self.stacked_layout.currentIndex() != 2:
             self.stacked_layout.setCurrentIndex(2)
             if self.window3_btn.isChecked() == True:
-                self.window3_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window1_btn.setStyleSheet("background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+                self.window3_btn.setStyleSheet(
+                    "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+                self.window1_btn.setStyleSheet(
+                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
                 self.window2_btn.setStyleSheet(
                     "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
                 self.window4_btn.setStyleSheet(
@@ -739,8 +795,10 @@ class UIForm(object):
         if self.stacked_layout.currentIndex() != 3:
             self.stacked_layout.setCurrentIndex(3)
             if self.window4_btn.isChecked() == True:
-                self.window4_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window2_btn.setStyleSheet("background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+                self.window4_btn.setStyleSheet(
+                    "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+                self.window2_btn.setStyleSheet(
+                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
                 self.window3_btn.setStyleSheet(
                     "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
                 self.window1_btn.setStyleSheet(
@@ -749,4 +807,3 @@ class UIForm(object):
     def somebody_speaking(self, channel_id):
         self.animation(channel_id)
         self.ani.start()
-

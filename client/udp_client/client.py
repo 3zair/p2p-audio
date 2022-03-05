@@ -62,7 +62,8 @@ class ChatClient:
         }
 
         self.ClientsInfo = {}  # 客户端的信息
-        self.Channels = {}  # channel的信息
+        self.ChannelsInfo = {}  # channel的信息
+        self.availableChannels = []
 
         # 消息发送结束标识
         self.ChannelFlag = False
@@ -142,21 +143,20 @@ class ChatClient:
             if self.user["ip"] == u["ip"] and self.user["port"] == u["port"]:
                 self.user["name"] = u["name"]
                 self.user["id"] = str(u["_id"])
-                self.user["level"] = u["level"]
             else:
                 self.ClientsInfo[str(u["_id"])] = {
                     "name": u["name"],
                     "ip": u["ip"],
                     "port": u["port"],
-                    "level": u["level"],
                 }
-            logging.info("client id:{} name:{} ip:{} port:{} level:{} channels:{}".format(
-                u["_id"], u["name"], u["ip"], u["port"], u["level"], u["listening_channels"]))
+            logging.info("client id:{} name:{} ip:{} port:{}".format(u["_id"], u["name"], u["ip"], u["port"]))
         channel_ret = self.col_channel.find()
         for c in channel_ret:
             logging.info(
-                "channel id:{} ip:{} port:{}".format(c["_id"], c["ip"], c["port"]))
-            self.Channels[str(c["_id"])] = {"port": c["port"], "ip": c["ip"]}
+                "channel id:{} ip:{} port:{}".format(c["_id"], c["ip"], c["port"], c["status"]))
+            self.ChannelsInfo[str(c["_id"])] = {"port": c["port"], "ip": c["ip"], "status": c["status"]}
+            if c["status"] == 1:
+                self.availableChannels.append(c["_id"])
 
     # 监听数据
     def receive_server_data(self):
@@ -327,7 +327,7 @@ class ChatClient:
                         msg = UdpMsg(msgType=100, num=num, body=json.dumps(body),
                                      voiceData=self.record_frames.pop())
                         self.s.sendto(msg.getMsg(),
-                                      (self.Channels[to_id]["ip"], self.Channels[to_id]["port"]))
+                                      (self.ChannelsInfo[to_id]["ip"], self.ChannelsInfo[to_id]["port"]))
                         logging.info("send len{} num{} data:{}".format(len(msg.voiceData), num, msg.voiceData))
                         num += 1
                         # 最大标号100000
@@ -387,8 +387,8 @@ class ChatClient:
         logging.info("stop play.")
 
     def get_channel(self):
-        channel_id = random.choice(list(self.Channels.keys()))
-        return self.Channels[channel_id]["ip"], self.Channels[channel_id]["port"]
+        channel_id = random.choice(list(self.availableChannels))
+        return self.ChannelsInfo[channel_id]["ip"], self.ChannelsInfo[channel_id]["port"]
 
     # 设置使用的信道
     def set_cur_channel(self, channel_id):

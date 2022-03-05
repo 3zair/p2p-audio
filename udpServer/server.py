@@ -14,9 +14,10 @@ class ChatServer:
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         for channel_id in self.channels.keys():
-            threading.Thread(target=self.serverStart,
-                             args=(channel_id, self.channels[channel_id]["ip"],
-                                   self.channels[channel_id]["port"])).start()
+            if self.channels[channel_id]["status"] == 1:
+                threading.Thread(target=self.serverStart,
+                                 args=(channel_id, self.channels[channel_id]["ip"],
+                                       self.channels[channel_id]["port"])).start()
 
     def serverStart(self, channel_id, ip, port):
         # 建立IPv4,UDP的socket

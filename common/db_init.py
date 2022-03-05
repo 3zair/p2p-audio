@@ -5,64 +5,27 @@ import pymongo
 然后执行此脚本初始化数据库
 """
 
-# myclient = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")
-# db = myclient["audio"]
-# col_user = db["user"]
-# col_channel = db["channel"]
-
-# col_channel.insert_many([{"_id": "1", "port": 9001, "ip": "192.168.31.101"}])
-# {"_id": "2", "port": 9002, "ip": "192.168.31.101"},
-# {"_id": "3", "port": 9003, "ip": "192.168.31.101"},
-# {"_id": "4", "port": 9004, "ip": "192.168.31.101"},
-# {"_id": "5", "port": 9005, "ip": "192.168.31.101"},
-# {"_id": "6", "port": 9006, "ip": "192.168.31.101"},
-# {"_id": "7", "port": 9007, "ip": "192.168.31.101"},
-# {"_id": "8", "port": 9008, "ip": "192.168.31.101"},
-
-#
-# col_user.insert_one({"name": "张1", "ip": "192.168.31.54", "level": 0, "port": 8001, "listening_channels": ["1"]})
-# col_user.insert_one({"name": "张2", "ip": "192.168.31.101", "level": 1, "port": 8002, "listening_channels": []})
-# col_user.insert_one({"name": "张3", "ip": "192.168.31.101", "level": 1, "port": 8003, "listening_channels": [4, 2]})
-# col_user.insert_one({"name": "张4", "ip": "192.168.31.101", "level": 2, "port": 8004, "listening_channels": [5, 2]})
-# col_user.insert_one({"name": "张5", "ip": "192.168.31.101", "level": 2, "port": 8005, "listening_channels": [7, 2]})
-# col_user.insert_one({"name": "张6", "ip": "192.168.31.101", "level": 3, "port": 8006, "listening_channels": [8, 2]})
-# col_user.insert_one({"name": "张7", "ip": "192.168.31.101", "level": 3, "port": 8007, "listening_channels": []})
-
-#
-# myclient = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")
-# db = myclient["audio_yjy"]
-# col_user = db["user"]
-# col_channel = db["channel"]
-# col_channel.insert_many([{"_id": "1", "port": 9001, "ip": "192.168.31.101"},
-#                          {"_id": "2", "port": 9002, "ip": "192.168.31.101"},
-#                          {"_id": "3", "port": 9003, "ip": "192.168.31.101"},
-#                          {"_id": "4", "port": 9004, "ip": "192.168.31.101"},
-#                          {"_id": "5", "port": 9005, "ip": "192.168.31.101"},
-#                          {"_id": "6", "port": 9006, "ip": "192.168.31.101"},
-#                          {"_id": "7", "port": 9007, "ip": "192.168.31.101"},
-#                          {"_id": "8", "port": 9008, "ip": "192.168.31.101"}])
-#
-# #
-# col_user.insert_one({"name": "张1", "ip": "192.168.31.54", "level": 0, "port": 8001, "listening_channels": ["1"]})
-# col_user.insert_one({"name": "张2", "ip": "192.168.31.101", "level": 1, "port": 8002, "listening_channels": []})
-# col_user.insert_one({"name": "张3", "ip": "192.168.31.101", "level": 1, "port": 8003, "listening_channels": ["1"]})
-# col_user.insert_one({"name": "张4", "ip": "192.168.31.101", "level": 1, "port": 8004, "listening_channels": ["2"]})
-
-
-mgo_client = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")
-db = mgo_client["audio_local"]
+myclient = pymongo.MongoClient("mongodb://admin:admin123@121.36.136.254:27017/")
+db = myclient["audio"]
 col_user = db["user"]
 col_channel = db["channel"]
-col_channel.insert_many([{"_id": "1", "port": 9001, "ip": "127.0.0.1"},
-                         {"_id": "2", "port": 9002, "ip": "127.0.0.1"},
-                         {"_id": "3", "port": 9003, "ip": "127.0.0.1"},
-                         {"_id": "4", "port": 9004, "ip": "127.0.0.1"},
-                         {"_id": "5", "port": 9005, "ip": "127.0.0.1"},
-                         {"_id": "6", "port": 9006, "ip": "127.0.0.1"},
-                         {"_id": "7", "port": 9007, "ip": "127.0.0.1"},
-                         {"_id": "8", "port": 9008, "ip": "127.0.0.1"}
+
+col_channel.insert_many([{"_id": "1", "port": 9001, "ip": "192.168.31.21", "status": 1},
+                         {"_id": "2", "port": 9002, "ip": "192.168.31.21", "status": 1},
+                         {"_id": "3", "port": 9003, "ip": "192.168.31.21", "status": 1},
+                         {"_id": "4", "port": 9004, "ip": "192.168.31.21", "status": 1},
+                         {"_id": "5", "port": 9005, "ip": "192.168.31.21", "status": 1},
+                         {"_id": "6", "port": 9006, "ip": "192.168.31.21", "status": 1},
+                         {"_id": "7", "port": 9007, "ip": "192.168.31.21", "status": 1},
+                         {"_id": "8", "port": 9008, "ip": "192.168.31.21", "status": 1},
+                         {"_id": "9", "port": 9009, "ip": "192.168.31.21", "status": 0},
+                         {"_id": "10", "port": 9010, "ip": "192.168.31.21", "status": 0},
+                         {"_id": "11", "port": 9011, "ip": "192.168.31.21", "status": 0},
+                         {"_id": "12", "port": 9011, "ip": "192.168.31.21", "status": 0},
                          ])
 
-#
-col_user.insert_one({"name": "张1", "ip": "127.0.0.1", "level": 0, "port": 8001})
-col_user.insert_one({"name": "张2", "ip": "127.0.0.1", "level": 1, "port": 8002})
+col_user.insert_one({"name": "张1", "ip": "192.168.31.54", "port": 8001})
+col_user.insert_one({"name": "张2", "ip": "192.168.31.101", "port": 8002})
+col_user.insert_one({"name": "张3", "ip": "192.168.31.143", "port": 8003})
+col_user.insert_one({"name": "张4", "ip": "192.168.31.26", "port": 8004})
+col_user.insert_one({"name": "张5", "ip": "192.168.31.236", "port": 8005})

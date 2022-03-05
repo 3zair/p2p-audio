@@ -16,16 +16,12 @@ class UIForm(object):
         self.channel_frames = {}
         self.client = ChatClient(get_host(), get_port())
         self.users = self.client.ClientsInfo
-        self.channels = self.client.Channels
+        self.channels = self.client.ChannelsInfo
         self.volume = 50
         self.chile_Win = None
 
         # 输入设备提示框是否在展示中
         self.waring_flags = [False, False, False]
-
-    # def setup_ui(self, main_form):
-    #     # self.client = ChatClient(socket.gethostbyname(socket.gethostname()), 8002)
-    #     self.client = ChatClient("192.168.1.112", 8002)
 
     def setup_ui(self, main_form):
 
@@ -124,7 +120,10 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][0].setObjectName("pushButton_name_{}".format(channel_id))
             # self.channel_push_buttons[channel_frame_name][0].setCheckable(True)
             self.channel_push_buttons[channel_frame_name][0].setText("通道_{}".format(channel_id))
-            self.channel_push_buttons[channel_frame_name][0].clicked.connect(lambda: self.btnClicked(main_form))
+            if self.channels[channel_id]["status"] == 1:
+                self.channel_push_buttons[channel_frame_name][0].clicked.connect(lambda: self.btnClicked(main_form))
+            else:
+                self.channel_push_buttons[channel_frame_name][0].setEnabled(False)
 
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
@@ -132,10 +131,14 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][1].setMinimumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][1].setMaximumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][1].setStyleSheet("background-color:rgb(245, 245, 245);")
-            self.channel_push_buttons[channel_frame_name][1].setCheckable(True)
+
             self.channel_push_buttons[channel_frame_name][1].setObjectName(channel_id)
             self.channel_push_buttons[channel_frame_name][1].setText("RX")
-            self.channel_push_buttons[channel_frame_name][1].clicked.connect(self.channel_rx_click_handle)
+            if self.channels[channel_id]["status"] == 1:
+                self.channel_push_buttons[channel_frame_name][1].setCheckable(True)
+                self.channel_push_buttons[channel_frame_name][1].clicked.connect(self.channel_rx_click_handle)
+            else:
+                self.channel_push_buttons[channel_frame_name][1].setEnabled(False)
 
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
@@ -143,11 +146,13 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][2].setMinimumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][2].setMaximumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][2].setStyleSheet("background-color:rgb(245, 245, 245);")
-            self.channel_push_buttons[channel_frame_name][2].setCheckable(True)
             self.channel_push_buttons[channel_frame_name][2].setObjectName(channel_id)
             self.channel_push_buttons[channel_frame_name][2].setText("TX")
-            self.channel_push_buttons[channel_frame_name][2].clicked.connect(self.channel_tx_click_handle)
-
+            if self.channels[channel_id]["status"] == 1:
+                self.channel_push_buttons[channel_frame_name][2].setCheckable(True)
+                self.channel_push_buttons[channel_frame_name][2].clicked.connect(self.channel_tx_click_handle)
+            else:
+                self.channel_push_buttons[channel_frame_name][2].setEnabled(False)
             print(channel_id, self.channels[channel_id])
 
     def top_frame_init(self, main_form):

@@ -9,6 +9,7 @@ import pyaudio
 import time
 import serial
 
+import conf.conf as conf
 from .my_udp import UdpMsg
 from common.mgo import col_user, col_channel
 
@@ -127,6 +128,8 @@ class ChatClient:
         self.col_user = col_user
         self.col_channel = col_channel
 
+        self.speaking_channels = set()
+        self.speaking_users = set()
         self.user = {
             "id": "",  # id
             "name": "",
@@ -223,7 +226,7 @@ class ChatClient:
 
         # 脚踏板控制器
         self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        self.ser.setPort("COM3")
+        self.ser.setPort(conf.get_serial())
         self.ser.dtr = True
         self.ser.open()
 
@@ -245,48 +248,52 @@ class ChatClient:
                 msg = UdpMsg(msg=data)
                 msg_body = json.loads(msg.getBody())
 
-                # TODO 获取当前监听的的客户端,放入播放队列
-
-                if msg.msgType == 101 and msg_body["uid"] == self.cur_connect_user:
-                    logging.info("客户端播放，name: {}".format(msg_body["uid"]))
-                    user_play_frame_body.append(msg.getVoiceData())
-                    if len(user_play_frame_body) == 10:
-                        self.play_frames_for_user.append(user_play_frame_body)
-                        user_play_frame_body = []
-                    # client_orders.append(msg.msgNum)
-                    # client_buffer[msg.msgNum] = msg.getVoiceData()
-                    # if len(client_orders) == 10:
-                    #     client_orders.sort()
-                    #     play_frame_body = []
-                    #     for t in client_orders:
-                    #         # 放入播放队列
-                    #         play_frame_body.append(client_buffer[t])
-                    #     self.play_frames_for_user.append(play_frame_body)
-                    #     client_orders = []
-                    #     client_buffer = {}
-
-                # TODO 是当前监听的信道，放入播放队列
-                if msg.msgType == 100 and msg_body["channel_id"] in self.cur_listening_channels:
-                    # logging.info("【监听信道】 播放，name: {}, channel:{} num:{}".format(
-                    #     msg_body["from"], msg_body["channel_id"], msg.msgNum))
-                    logging.info(
-                        "channel voice data len{} num{}".format(len(msg.voiceData), msg.msgNum))
-                    channel_play_frame_body.append(msg.getVoiceData())
-                    if len(channel_play_frame_body) == 10:
-                        self.play_frames_for_channel.append(channel_play_frame_body)
-                        channel_play_frame_body = []
-                    # channel_orders.append(msg.msgNum)
-                    # channel_buffer[msg.msgNum] = msg.getVoiceData()
-                    # frames.append(msg.voiceData)
-                    # if len(channel_orders) == 10:
-                    #     channel_orders.sort()
-                    #     play_frame_body = []
-                    #     for t in channel_orders:
-                    #         # 放入播放队列
-                    #         play_frame_body.append(channel_buffer[t])
-                    #     self.play_frames_for_channel.append(play_frame_body)
-                    #     channel_orders = []
-                    #     channel_buffer = {}
+                # 获取当前监听的的客户端,放入播放队列
+                if msg.msgType == 101:
+                    if msg_body["uid"] == self.cur_connect_user:
+                        logging.info("客户端播放，name: {}".format(msg_body["uid"]))
+                        user_play_frame_body.append(msg.getVoiceData())
+                        if len(user_play_frame_body) == 10:
+                            self.play_frames_for_user.append(user_play_frame_body)
+                            user_play_frame_body = []
+                        # client_orders.append(msg.msgNum)
+                        # client_buffer[msg.msgNum] = msg.getVoiceData()
+                        # if len(client_orders) == 10:
+                        #     client_orders.sort()
+                        #     play_frame_body = []
+                        #     for t in client_orders:
+                        #         # 放入播放队列
+                        #         play_frame_body.append(client_buffer[t])
+                        #     self.play_frames_for_user.append(play_frame_body)
+                        #     client_orders = []
+                        #     client_buffer = {}
+                    else:
+                        self.speaking_users.add(msg_body["uid"])
+                # 当前监听的信道，放入播放队列
+                elif msg.msgType == 100:
+                    if msg_body["channel_id"] in self.cur_listening_channels:
+                        # logging.info("【监听信道】 播放，name: {}, channel:{} num:{}".format(
+                        #     msg_body["from"], msg_body["channel_id"], msg.msgNum))
+                        logging.info(
+                            "channel voice data len{} num{}".format(len(msg.voiceData), msg.msgNum))
+                        channel_play_frame_body.append(msg.getVoiceData())
+                        if len(channel_play_frame_body) == 10:
+                            self.play_frames_for_channel.append(channel_play_frame_body)
+                            channel_play_frame_body = []
+                        # channel_orders.append(msg.msgNum)
+                        # channel_buffer[msg.msgNum] = msg.getVoiceData()
+                        # frames.append(msg.voiceData)
+                        # if len(channel_orders) == 10:
+                        #     channel_orders.sort()
+                        #     play_frame_body = []
+                        #     for t in channel_orders:
+                        #         # 放入播放队列
+                        #         play_frame_body.append(channel_buffer[t])
+                        #     self.play_frames_for_channel.append(play_frame_body)
+                        #     channel_orders = []
+                        #     channel_buffer = {}
+                    else:
+                        self.speaking_channels.add(msg_body["channel_id"])
 
             except Exception as e:
                 logging.error("receive_server_data err {}".format(e))

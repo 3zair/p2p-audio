@@ -21,8 +21,12 @@ def get_port():
         return 8001
 
 
+def get_serial():
+    return c["serial"]
+
+
 def init():
     global c
     with open(CONF_PATH, 'r', encoding="utf-8") as conf_f:
-        c = yaml.load(conf_f.read(),yaml.FullLoader)
+        c = yaml.load(conf_f.read(), yaml.FullLoader)
     return True

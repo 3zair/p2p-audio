@@ -6,16 +6,33 @@ import os
 from udp_client.client import ChatClient
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QLabel, QFrame, QToolButton, QButtonGroup, QStackedLayout
-from PyQt5.QtCore import Qt, QPropertyAnimation, QTimer, QDateTime, QSize
+from PyQt5.QtCore import Qt, QPropertyAnimation, QTimer, QDateTime, QSize, QAbstractAnimation
 from PyQt5.QtGui import QColor, QIcon
+from .button_utils import QPushButtonWithColor, QToolButtonWithColor
 from .ui_subwindow import UiForm2
 from conf.conf import get_host, get_port
 
 
+def new_animation(parent):
+    ani = QPropertyAnimation(parent, b'color')
+    ani.setDuration(1000)
+    ani.setLoopCount(-1)
+    ani.setStartValue(QColor(210, 210, 210))
+    ani.setEndValue(QColor(204, 255, 204))
+
+    return ani
+
+
 class UIForm(object):
     def __init__(self):
+        self.btn_group = None
         self.channel_push_buttons = {}
+        self.channel_rx_animation = {}
         self.channel_frames = {}
+
+        self.user_push_buttons = []
+        self.user_animation = {}
+        self.phone_book_animation = {}
         self.client = ChatClient(get_host(), get_port())
         self.users = self.client.users_info
         self.channels = self.client.ChannelsInfo
@@ -29,7 +46,6 @@ class UIForm(object):
         self.static_dir = os.path.join(os.getcwd(), "statics")
 
     def setup_ui(self, main_form):
-
         print(self.client.user)
         main_form.setObjectName("main_form")
         main_form.resize(1024, 768)
@@ -42,15 +58,29 @@ class UIForm(object):
 
         self.show_time_frame_init(main_form)
         self.channel_frame_init(main_form)
+        # self.somebody_speaking("1")
         self.top_frame_init(main_form)
         self.bottom_frame_init(main_form)
+
         self.user_frame_init(main_form)
         self.phone_book_change_init(main_form)
+        # self.phone_book_animation[1].start()
         self.right_frame_init(main_form)
 
         # self.retranslateUi(main_form)
         QtCore.QMetaObject.connectSlotsByName(main_form)
+        # for ani in self.channel_rx_animation.values():
+        #     ani.start(QAbstractAnimation.KeepWhenStopped)
+        #     #ani.setPaused(True)
+        # for ani in self.user_animation.values():
+        #     ani.start(QAbstractAnimation.KeepWhenStopped)
+        #     #ani.setPaused(True)
+        # for ani in self.phone_book_animation.values():
+        #     ani.start(QAbstractAnimation.KeepWhenStopped)
+        #     #ani.setPaused(True)
+
         threading.Thread(target=self.micro_phone_control).start()
+        threading.Thread(target=self.somebody_speaking).start()
 
     def show_time_frame_init(self, main_form):
         show_time_frame = QtWidgets.QFrame(main_form)
@@ -143,25 +173,21 @@ class UIForm(object):
                 self.channel_push_buttons[channel_frame_name][0].setEnabled(False)
 
             self.channel_push_buttons[channel_frame_name].append(
-                QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
+                QPushButtonWithColor(self.channel_frames[channel_frame_name]))
             self.channel_push_buttons[channel_frame_name][1].setGeometry(QtCore.QRect(110, 0, 80, 60))
             self.channel_push_buttons[channel_frame_name][1].setMinimumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][1].setMaximumSize(QtCore.QSize(80, 60))
             self.channel_push_buttons[channel_frame_name][1].setStyleSheet(
                 "background-color:rgb(210, 210, 210);font-size:15px;")
-
             self.channel_push_buttons[channel_frame_name][1].setObjectName(channel_id)
-
             if self.channels[channel_id]["status"] == 1:
                 self.channel_push_buttons[channel_frame_name][1].setText("RX")
                 self.channel_push_buttons[channel_frame_name][1].setCheckable(True)
                 self.channel_push_buttons[channel_frame_name][1].clicked.connect(self.channel_rx_click_handle)
+                # 增加RX按钮闪烁动画，等有消息时会闪烁
+                self.channel_rx_animation[channel_id] = new_animation(self.channel_push_buttons[channel_frame_name][1])
             else:
                 self.channel_push_buttons[channel_frame_name][1].setEnabled(False)
-
-            # TODO:某通道有消息时，对应的RX按钮变色
-
-            # self.channel_push_buttons[channel_frame_name][1].animation.setKeyValueAt(0.1, QColor(0, 255, 0))
 
             self.channel_push_buttons[channel_frame_name].append(
                 QtWidgets.QPushButton(self.channel_frames[channel_frame_name]))
@@ -451,7 +477,7 @@ class UIForm(object):
 
         # 创建堆叠布局
         self.stacked_layout = QStackedLayout(user_frame)
-        self.user_btns = []
+
         for page in range(3):
             main_frame = QtWidgets.QWidget()
             rom_frame = QFrame(main_frame)
@@ -465,7 +491,7 @@ class UIForm(object):
             for user_num in range(1, 13):
                 x = 6 + (i % 3) * 96
                 y = 14 + int(i / 3) * 100
-                user_btn = QtWidgets.QPushButton(rom_frame)
+                user_btn = QPushButtonWithColor(rom_frame)
                 user_btn.setGeometry(QtCore.QRect(x, y, 86, 88))
                 user_btn.setMinimumSize(QtCore.QSize(86, 88))
                 user_btn.setMaximumSize(QtCore.QSize(86, 88))
@@ -474,20 +500,22 @@ class UIForm(object):
                 user_btn.setEnabled(False)
                 page_user_btns.append(user_btn)
                 i += 1
-            self.user_btns.append(page_user_btns)
+            self.user_push_buttons.append(page_user_btns)
 
-        logging.info("user:{} l:{}".format(self.client.users_info, len(self.user_btns)))
+        logging.info("user:{} l:{}".format(self.client.users_info, len(self.user_push_buttons)))
         for user in self.client.users_info.values():
             page_id = user["page"] - 1
-
             if 2 >= page_id >= 0:
-                for k in range(len(self.user_btns[page_id])):
-                    if not self.user_btns[page_id][k].isEnabled():
-                        self.user_btns[page_id][k].setText(user["name"])
-                        self.user_btns[page_id][k].setObjectName(user["id"])
-                        self.user_btns[page_id][k].setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
-                        self.user_btns[page_id][k].setEnabled(True)
-                        self.user_btns[page_id][k].clicked.connect(self.user_click_handle)
+                for k in range(len(self.user_push_buttons[page_id])):
+                    if not self.user_push_buttons[page_id][k].isEnabled():
+                        self.user_push_buttons[page_id][k].setText(user["name"])
+                        self.user_push_buttons[page_id][k].setObjectName(user["id"])
+                        self.user_push_buttons[page_id][k].setStyleSheet(
+                            "background-color:rgb(210, 210, 210);font-size:15px;")
+                        self.user_push_buttons[page_id][k].setEnabled(True)
+                        self.user_push_buttons[page_id][k].clicked.connect(self.user_click_handle)
+                        # 增加RX按钮闪烁动画，等有消息时会闪烁
+                        self.user_animation[user["id"]] = new_animation(self.user_push_buttons[page_id][k])
                         break
 
     # 电话簿换页frame初始化
@@ -499,56 +527,25 @@ class UIForm(object):
         self.frame_tool.setFrameShape(QFrame.Panel)
         self.frame_tool.setFrameShadow(QFrame.Raised)
 
-        self.window1_btn = QToolButton(self.frame_tool)
-        self.window1_btn.setStyleSheet(
-            "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-        self.window1_btn.setCheckable(True)
-        self.window1_btn.setText("电话本 1")
-        self.window1_btn.setObjectName("menu_btn")
-        self.window1_btn.resize(91, 80)
-        self.window1_btn.move(6, 0)
-        self.window1_btn.clicked.connect(self.phone_book_click_1)
-        self.window1_btn.setAutoRaise(True)
-        self.window1_btn.setChecked(True)
-
-        self.window2_btn = QToolButton(self.frame_tool)
-        self.window2_btn.setStyleSheet(
-            "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-        self.window2_btn.setCheckable(True)
-        self.window2_btn.setText("电话本 2")
-        self.window2_btn.setObjectName("menu_btn")
-        self.window2_btn.resize(96, 80)
-        self.window2_btn.move(97, 0)
-        self.window2_btn.clicked.connect(self.phone_book_click_2)
-        self.window2_btn.setAutoRaise(True)
-
-        self.window3_btn = QToolButton(self.frame_tool)
-        self.window3_btn.setStyleSheet(
-            "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-        self.window3_btn.setCheckable(True)
-        self.window3_btn.setText("电话本 3")
-        self.window3_btn.setObjectName("menu_btn")
-        self.window3_btn.resize(93, 80)
-        self.window3_btn.move(193, 0)
-        self.window3_btn.clicked.connect(self.phone_book_click_3)
-        self.window3_btn.setAutoRaise(True)
-        #
-        # self.window4_btn = QToolButton(self.frame_tool)
-        # self.window4_btn.setStyleSheet(
-        #     "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-        # self.window4_btn.setCheckable(True)
-        # self.window4_btn.setText("PHONE 4")
-        # self.window4_btn.setObjectName("menu_btn")
-        # self.window4_btn.resize(95, 80)
-        # self.window4_btn.move(295, 0)
-        # self.window4_btn.clicked.connect(self.phone_book_click_4)
-        # self.window4_btn.setAutoRaise(True)
-
         self.btn_group = QButtonGroup(self.frame_tool)
-        self.btn_group.addButton(self.window1_btn, 1)
-        self.btn_group.addButton(self.window2_btn, 2)
-        self.btn_group.addButton(self.window3_btn, 3)
-        # self.btn_group.addButton(self.window4_btn, 4)
+        btn_size = [91, 96, 93]
+        locations = [6, 97, 193]
+        for i in range(3):
+            phone_book_btn = QToolButtonWithColor(self.frame_tool)
+            phone_book_btn.setStyleSheet(
+                "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+            phone_book_btn.setCheckable(True)
+            phone_book_btn.setText("电话本_{}".format(i + 1))
+            phone_book_btn.setObjectName("menu_btn_{}".format(i))
+            phone_book_btn.resize(btn_size[i], 80)
+            phone_book_btn.move(locations[i], 0)
+            phone_book_btn.setAutoRaise(True)
+            self.phone_book_animation[i] = new_animation(phone_book_btn)
+            self.btn_group.addButton(phone_book_btn, i)
+            self.btn_group.buttonClicked.connect(self.phone_book_click_handle)
+        # 默认为第一页
+        self.btn_group.button(0).setStyleSheet(
+            "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
 
     # message提示框
     def show_message(self):
@@ -592,8 +589,8 @@ class UIForm(object):
 
         if checked and channel_id not in self.client.cur_listening_channels:
             rx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
-
             self.client.add_listening_channel(channel_id)
+            self.channel_rx_animation[channel_id].stop()
 
     # 通道的tx按钮的点击事件
     def channel_tx_click_handle(self):
@@ -664,6 +661,9 @@ class UIForm(object):
                 self.client.stop_send_to_user()
             user_btn.setStyleSheet("background-color:rgb(128, 255, 128);font-size:15px;")
             self.client.send_to_user(user_id)
+            # 停止闪烁
+            self.user_animation[user_id].stop()
+            self.phone_book_animation[self.users[user_id]["page"] - 1].stop()
         else:
             user_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
             self.client.stop_send_to_user()
@@ -678,6 +678,36 @@ class UIForm(object):
                 return True
             i += 1
         return cancel_ret
+
+    # 电话簿换页按钮1
+    def phone_book_click_handle(self):
+        index = self.btn_group.checkedId()
+        if self.stacked_layout.currentIndex() != index:
+            self.stacked_layout.setCurrentIndex(index)
+            for btn in self.btn_group.buttons():
+                btn.setStyleSheet(
+                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+            if self.btn_group.button(index).isChecked():
+                self.btn_group.button(index).setStyleSheet(
+                    "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
+
+    def somebody_speaking(self):
+        while True:
+            if len(self.client.speaking_channels) > 0:
+                channel_id = self.client.speaking_channels.pop()
+                self.channel_rx_animation[channel_id].start(QAbstractAnimation.KeepWhenStopped)
+                #self.channel_rx_animation[channel_id].setPaused(False)
+               # self.channel_rx_animation[channel_id].setCurrentTime(0)
+            if len(self.client.speaking_users) > 0:
+                user_id = self.client.speaking_users.pop()
+                self.user_animation[user_id].start(QAbstractAnimation.KeepWhenStopped)
+                #self.user_animation[user_id].setPaused(False)
+                #self.user_animation[user_id].setCurrentTime(0)
+                self.phone_book_animation[self.users[user_id]["page"] - 1].start(QAbstractAnimation.KeepWhenStopped)
+                #self.phone_book_animation[self.users[user_id]["page"] - 1].setPaused(False)
+                #self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(0)
+                logging.info("state:{}".format(self.user_animation[user_id].state()))
+            time.sleep(5)
 
     # 麦克风控制
     def micro_phone_control(self):
@@ -715,51 +745,3 @@ class UIForm(object):
                     and self.client.input_device_flags[self.client.devices["inputs"][2]]:
                 self.client.stop_record_voice_data_for_channel(self.client.devices["inputs"][2])
             time.sleep(0.22)
-
-    def animation(self, channel_id):
-        channel_frame_name = "channel_frame_{}".format(channel_id)
-        self.ani = QPropertyAnimation(self.channel_push_buttons[channel_frame_name][1], "color")
-        self.ani.setDuration(1000)
-        self.ani.setLoopCount(20)
-        self.ani.setStartValue(QColor(245, 245, 245))
-        self.ani.setEndValue(QColor(255, 255, 0))
-
-    # 电话簿换页按钮1
-    def phone_book_click_1(self):
-        if self.stacked_layout.currentIndex() != 0:
-            self.stacked_layout.setCurrentIndex(0)
-            if self.window1_btn.isChecked() == True:
-                self.window1_btn.setStyleSheet(
-                    "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window2_btn.setStyleSheet(
-                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window3_btn.setStyleSheet(
-                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-
-    # 电话簿换页按钮2
-    def phone_book_click_2(self):
-        if self.stacked_layout.currentIndex() != 1:
-            self.stacked_layout.setCurrentIndex(1)
-            if self.window2_btn.isChecked() == True:
-                self.window2_btn.setStyleSheet(
-                    "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window1_btn.setStyleSheet(
-                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window3_btn.setStyleSheet(
-                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-
-    # 电话簿换页按钮3
-    def phone_book_click_3(self):
-        if self.stacked_layout.currentIndex() != 2:
-            self.stacked_layout.setCurrentIndex(2)
-            if self.window3_btn.isChecked() == True:
-                self.window3_btn.setStyleSheet(
-                    "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window1_btn.setStyleSheet(
-                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-                self.window2_btn.setStyleSheet(
-                    "background-color:rgb(183, 183, 183);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
-
-    def somebody_speaking(self, channel_id):
-        self.animation(channel_id)
-        self.ani.start()

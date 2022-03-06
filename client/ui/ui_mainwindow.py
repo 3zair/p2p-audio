@@ -608,23 +608,23 @@ class UIForm(object):
         rx_button = self.sender()
         checked = rx_button.isChecked()
         channel_id = rx_button.objectName()
-        if not checked and channel_id in self.client.user["listening_channels"]:
+        if not checked and channel_id in self.client.cur_listening_channels:
             rx_button.setStyleSheet("background-color:rgb(210, 210, 210);")
             self.client.del_listening_channel(channel_id)
             # 取消
             tx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][2]
             tx_checked = tx_button.isChecked()
             if tx_checked:
-                if self.client.cur_channel is not None and self.client.cur_channel == channel_id:
+                if self.client.cur_speaking_channel is not None and self.client.cur_speaking_channel == channel_id:
                     ret = self.cancel_occupy_channel(channel_id)
                     if ret is True:
                         self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setChecked(False)
                     else:
-                        self.client.cur_channel = channel_id
+                        self.client.cur_speaking_channel = channel_id
                         logging.error("取消占用channel {} err: {}".format(channel_id, ret))
                         self.show_error_message("通道{}释放失败".format(channel_id))
 
-        if checked and channel_id not in self.client.user["listening_channels"]:
+        if checked and channel_id not in self.client.cur_listening_channels:
             rx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
             self.client.add_listening_channel(channel_id)
 
@@ -636,8 +636,8 @@ class UIForm(object):
         if checked:
             # 开始占用通道 channel_id
             # 检测当前是否占用其他某个信道
-            cur_channel = self.client.cur_channel
-            if self.client.cur_channel is not None:
+            cur_channel = self.client.cur_speaking_channel
+            if self.client.cur_speaking_channel is not None:
                 ret = self.cancel_occupy_channel(cur_channel)
                 if ret is True:
                     self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setStyleSheet(
@@ -646,7 +646,7 @@ class UIForm(object):
                 else:
                     # 当前占用的通道取消失败
                     tx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
-                    self.client.cur_channel = cur_channel
+                    self.client.cur_speaking_channel = cur_channel
                     tx_button.setChecked(False)
                     logging.error("释放channel {} err: {}".format(cur_channel, ret))
                     self.show_error_message("通道{}释放失败".format(cur_channel))
@@ -658,7 +658,7 @@ class UIForm(object):
                 # 监听当前通道
                 rx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][1]
                 checked = rx_button.isChecked()
-                if channel_id not in self.client.user["listening_channels"]:
+                if channel_id not in self.client.cur_listening_channels:
                     self.client.add_listening_channel(channel_id)
                 if not checked:
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setChecked(True)
@@ -670,7 +670,7 @@ class UIForm(object):
                 self.show_error_message("通道{}占用失败".format(channel_id))
         else:
             # 取消占用通道 channel_id
-            if self.client.cur_channel is not None:
+            if self.client.cur_speaking_channel is not None:
                 ret = self.cancel_occupy_channel(channel_id)
                 if ret is True:
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setStyleSheet(
@@ -679,15 +679,18 @@ class UIForm(object):
                 else:
                     # 当前占用的通道取消失败
                     tx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
-                    self.client.cur_channel = channel_id
+                    self.client.cur_speaking_channel = channel_id
                     tx_button.setChecked(True)
                     logging.error("取消占用channel {} err: {}".format(channel_id, ret))
                     self.show_error_message("通道{}释放失败".format(channel_id))
+
     def user_click_handle(self):
         user_btn = self.sender()
         checked = user_btn.isChecked()
         user_id = user_btn.objectName()
         if checked:
+            if self.client.cur_connect_user is not None and not self.client.cur_connect_user == user_id:
+                self.client.stop_send_to_user()
             self.client.send_to_user(user_id)
         else:
             self.client.stop_send_to_user()
@@ -714,30 +717,30 @@ class UIForm(object):
                     # self.show_error_message("请插入输入设备1(CD)")
                     logging.info("请插入输入设备1(CD)")
                 elif not self.client.input_device_flags[self.client.devices["inputs"][0]]:
-                    self.client.start_record_voice_data(self.client.devices["inputs"][0])
+                    self.client.start_record_voice_data_for_channel(self.client.devices["inputs"][0])
             if not self.client.ser.cd and len(self.client.devices["inputs"]) >= 1 \
                     and self.client.input_device_flags[self.client.devices["inputs"][0]]:
-                self.client.stop_record_voice_data(self.client.devices["inputs"][0])
+                self.client.stop_record_voice_data_for_channel(self.client.devices["inputs"][0])
             # level 2
             if self.client.ser.dsr:
                 if len(self.client.devices["inputs"]) < 2:
                     # self.show_error_message("请插入输入设备2(DSR)")
                     logging.info("请插入输入设备2(DSR)")
                 elif not self.client.input_device_flags[self.client.devices["inputs"][1]]:
-                    self.client.start_record_voice_data(self.client.devices["inputs"][1])
+                    self.client.start_record_voice_data_for_channel(self.client.devices["inputs"][1])
             if not self.client.ser.dsr and len(self.client.devices["inputs"]) >= 2 \
                     and self.client.input_device_flags[self.client.devices["inputs"][1]]:
-                self.client.stop_record_voice_data(self.client.devices["inputs"][1])
+                self.client.stop_record_voice_data_for_channel(self.client.devices["inputs"][1])
             # level 3
             if self.client.ser.cts:
                 if len(self.client.devices["inputs"]) < 3:
                     # self.show_error_message("请插入输入设备3(CTS)")
                     logging.info("请插入输入设备3(CTS)")
                 elif not self.client.input_device_flags[self.client.devices["inputs"][2]]:
-                    self.client.start_record_voice_data(self.client.devices["inputs"][2])
+                    self.client.start_record_voice_data_for_channel(self.client.devices["inputs"][2])
             if not self.client.ser.cts and len(self.client.devices["inputs"]) >= 3 \
                     and self.client.input_device_flags[self.client.devices["inputs"][2]]:
-                self.client.stop_record_voice_data(self.client.devices["inputs"][2])
+                self.client.stop_record_voice_data_for_channel(self.client.devices["inputs"][2])
             time.sleep(0.22)
 
     def animation(self, channel_id):

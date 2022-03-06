@@ -16,7 +16,7 @@ HeaderSize = 12
 
 
 class UdpMsg:
-    def __init__(self, msgType=None, num=0, body="", voiceDataLen=1024, voiceData="", msg=None):
+    def __init__(self, msgType=None, num=0, body="", voiceDataLen=700, voiceData="", msg=None):
         if msg is None:
             if msgType not in [100, 101, 200,201]:
                 raise [Exception, "invalid msg type :{}".format(msgType)]

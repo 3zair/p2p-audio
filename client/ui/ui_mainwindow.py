@@ -50,8 +50,7 @@ class UIForm(object):
 
         # self.retranslateUi(main_form)
         QtCore.QMetaObject.connectSlotsByName(main_form)
-        # TODO:Temp
-        # threading.Thread(target=self.micro_phone_control).start()
+        threading.Thread(target=self.micro_phone_control).start()
 
     def show_time_frame_init(self, main_form):
         show_time_frame = QtWidgets.QFrame(main_form)
@@ -670,7 +669,7 @@ class UIForm(object):
         checked = rx_button.isChecked()
         channel_id = rx_button.objectName()
         if not checked and channel_id in self.client.user["listening_channels"]:
-            rx_button.setStyleSheet("background-color:rgb(210, 210, 210);")
+            rx_button.setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
             self.client.del_listening_channel(channel_id)
             # 取消
             tx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][2]
@@ -686,7 +685,7 @@ class UIForm(object):
                         self.show_error_message("通道{}释放失败".format(channel_id))
 
         if checked and channel_id not in self.client.user["listening_channels"]:
-            rx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
+            rx_button.setStyleSheet("background-color:rgb(128, 255, 128);font-size:15px;")
             self.client.add_listening_channel(channel_id)
 
     # 通道的tx按钮的点击事件
@@ -702,7 +701,7 @@ class UIForm(object):
                 ret = self.cancel_occupy_channel(cur_channel)
                 if ret is True:
                     self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setStyleSheet(
-                        "background-color:rgb(210, 210, 210);")
+                        "background-color:rgb(210, 210, 210);font-size:15px;")
                     self.channel_push_buttons["channel_frame_{}".format(cur_channel)][2].setChecked(False)
                 else:
                     # 当前占用的通道取消失败
@@ -715,7 +714,7 @@ class UIForm(object):
             ret = self.client.choose_channel(channel_id)
             if ret is True:
                 self.client.start_send_to_channel()
-                tx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
+                tx_button.setStyleSheet("background-color:rgb(128, 255, 128);font-size:15px;")
                 # 监听当前通道
                 rx_button = self.channel_push_buttons["channel_frame_{}".format(channel_id)][1]
                 checked = rx_button.isChecked()
@@ -724,7 +723,7 @@ class UIForm(object):
                 if not checked:
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setChecked(True)
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setStyleSheet(
-                        "background-color:rgb(128, 255, 128);")
+                        "background-color:rgb(128, 255, 128);font-size:15px;")
             else:
                 tx_button.setChecked(False)
                 logging.error("choose_channel err: {}".format(ret))
@@ -735,11 +734,11 @@ class UIForm(object):
                 ret = self.cancel_occupy_channel(channel_id)
                 if ret is True:
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setStyleSheet(
-                        "background-color:rgb(210, 210, 210);")
+                        "background-color:rgb(210, 210, 210);font-size:15px;")
                     self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setChecked(False)
                 else:
                     # 当前占用的通道取消失败
-                    tx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
+                    tx_button.setStyleSheet("background-color:rgb(128, 255, 128);font-size:15px;")
                     self.client.cur_channel = channel_id
                     tx_button.setChecked(True)
                     logging.error("取消占用channel {} err: {}".format(channel_id, ret))
@@ -750,10 +749,10 @@ class UIForm(object):
         checked = user_btn.isChecked()
         user_id = user_btn.objectName()
         if checked:
-            user_btn.setStyleSheet("background-color:rgb(128, 255, 128);")
+            user_btn.setStyleSheet("background-color:rgb(128, 255, 128);font-size:15px;")
             self.client.send_to_user(user_id)
         else:
-            user_btn.setStyleSheet("background-color:rgb(210, 210, 210);")
+            user_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
             self.client.stop_send_to_user()
 
     # 取消占用通道

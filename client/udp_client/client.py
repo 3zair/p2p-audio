@@ -12,10 +12,9 @@ import serial
 from .my_udp import UdpMsg
 from common.mgo import col_user, col_channel
 
-# TODO:Temp
-# from .volume_control_utils import MyAudioUtilities
-# from comtypes import CLSCTX_ALL
-# from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
+from .volume_control_utils import MyAudioUtilities
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
 from ctypes import POINTER, cast
 
 # 控制音量
@@ -79,9 +78,7 @@ def change_output_volume(channel_id, device, usb_volume=-1, pc_volume=-1):
             ChannelsOutputVolumeConf[channel_id][2] = usb_volume
 
             for device in OutputDevices["usb"]:
-                pass
-                # TODO:Temp
-                # set_output_volume_value(device, usb_volume)
+                set_output_volume_value(device, usb_volume)
     else:
         logging.warning("invalid channel_id: {}".format(channel_id))
 
@@ -179,8 +176,7 @@ class ChatClient:
         self.devices = init_devices()
         logging.info("devices:{}".format(self.devices))
         # 输出设备初始化（用于调节音量）
-        # TODO:Temp
-        # output_device_init_for_volume_control()
+        output_device_init_for_volume_control()
 
         self.record_frames_channel = []
         self.record_frames_user = []
@@ -213,11 +209,10 @@ class ChatClient:
         threading.Thread(target=self.play).start()
 
         # 脚踏板控制器
-        # TODO:Temp
-        # self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        # self.ser.setPort("COM3")
-        # self.ser.dtr = True
-        # self.ser.open()
+        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        self.ser.setPort("COM3")
+        self.ser.dtr = True
+        self.ser.open()
 
     # 监听数据
     def receive_server_data(self):

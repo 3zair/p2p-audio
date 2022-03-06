@@ -131,7 +131,6 @@ class UiForm2(QDialog):
             change_output_volume(self.channel_id, device=2)
             self.volume_slider.setValue(get_channel_volume_conf()[self.channel_id][2])
             self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'headset.svg')))
-
             print("current play device is : usb")
         else:
             # 此时是扬声器播放

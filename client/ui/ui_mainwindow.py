@@ -6,21 +6,57 @@ import os
 from udp_client.client import ChatClient
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QLabel, QFrame, QToolButton, QButtonGroup, QStackedLayout
-from PyQt5.QtCore import Qt, QPropertyAnimation, QTimer, QDateTime, QSize, QAbstractAnimation
+from PyQt5.QtCore import Qt, QPropertyAnimation, QTimer, QDateTime, QSize, QAbstractAnimation, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QIcon
 from .button_utils import QPushButtonWithColor, QToolButtonWithColor
 from .ui_subwindow import UiForm2
 from conf.conf import get_host, get_port
 
+# 用于消息闪烁实时更新的全局变量
+lenth_of_channel_speaking = 0
+lenth_of_user_speaking = 0
 
+
+# 设置按钮变色效果
 def new_animation(parent):
     ani = QPropertyAnimation(parent, b'color')
     ani.setDuration(1000)
     ani.setLoopCount(-1)
     ani.setStartValue(QColor(210, 210, 210))
     ani.setEndValue(QColor(204, 255, 204))
-
     return ani
+
+
+# 消息闪烁的线程类
+class AnimaThread(QThread):
+    user_signal = pyqtSignal(str)
+    channel_signal = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+
+    # 触发函数
+    def run(self):
+        while 1:
+            # 需要启动闪烁动画的时候就发送信号出去
+            global lenth_of_channel_speaking
+            if lenth_of_channel_speaking > 0:
+                self.channel_signal.emit("1")
+            global lenth_of_user_speaking
+            if lenth_of_user_speaking > 0:
+                self.user_signal.emit("1")
+
+
+# 动态显示当前时间的线程类
+class CurrTime(QThread):
+    update_date = pyqtSignal(str)
+
+    def run(self):
+        while True:
+            date = QDateTime.currentDateTime()
+            current = date.toString("yyyy-MM-dd hh:mm:ss dddd")
+            self.update_date.emit(str(current))
+            time.sleep(1)
 
 
 class UIForm(object):
@@ -56,18 +92,17 @@ class UIForm(object):
 
         main_form.setWindowTitle("Form")
 
+        # 各个frame的初始化
         self.show_time_frame_init(main_form)
         self.channel_frame_init(main_form)
-        # self.somebody_speaking("1")
         self.top_frame_init(main_form)
         self.bottom_frame_init(main_form)
-
         self.user_frame_init(main_form)
         self.phone_book_change_init(main_form)
-        # self.phone_book_animation[1].start()
         self.right_frame_init(main_form)
 
-        # self.retranslateUi(main_form)
+        # self.phone_book_animation[1].start()
+
         QtCore.QMetaObject.connectSlotsByName(main_form)
         # for ani in self.channel_rx_animation.values():
         #     ani.start(QAbstractAnimation.KeepWhenStopped)
@@ -79,9 +114,27 @@ class UIForm(object):
         #     ani.start(QAbstractAnimation.KeepWhenStopped)
         #     #ani.setPaused(True)
 
-        threading.Thread(target=self.micro_phone_control).start()
-        threading.Thread(target=self.somebody_speaking).start()
+        # TODO:without
+        # threading.Thread(target=self.micro_phone_control).start()
 
+        # 启动动态时间显示线程
+        self.backend = CurrTime()
+        self.backend.update_date.connect(self.showtime)
+        self.backend.start()
+
+        # 重写版动画线程启动
+        self.animation_thread = AnimaThread()
+        # 链接通道闪烁函数
+        self.animation_thread.channel_signal.connect(self.channel_flashing)
+        # 链接user闪烁函数
+        self.animation_thread.user_signal.connect(self.user_flashing)
+        self.animation_thread.start()
+        # 实时检测是否收到消息的线程（判断当前speaking的user和channel的数量是否发生变化）
+        threading.Thread(target=self.lenth_user_channel_change).start()
+        # 原版动画线程启动
+        # threading.Thread(target=self.somebody_speaking).start()
+
+    # 顶部时间显示frame初始化
     def show_time_frame_init(self, main_form):
         show_time_frame = QtWidgets.QFrame(main_form)
         show_time_frame.setGeometry(QtCore.QRect(0, 0, 1024, 40))
@@ -93,14 +146,11 @@ class UIForm(object):
         self.time_label = QLabel(show_time_frame)
         self.time_label.setFixedWidth(600)
         self.time_label.move(20, 12)
-        timer = QTimer(show_time_frame)
-        timer.timeout.connect(self.showtime)
-        timer.start(1000)
 
-    def showtime(self):
-        self.time_label.setText(QDateTime.currentDateTime().toString('yyyy-MM-dd hh:mm:ss dddd'))
+    # 时间label动态赋值
+    def showtime(self, data):
+        self.time_label.setText(data)
         self.time_label.setStyleSheet("font-size:18px")
-        # self.label.setFont(QFont("Roman times", 12, QFont.Bold))
 
     # 通道按钮的点击事件（音量控制子页面）
     def btnClicked(self, main_form):
@@ -651,6 +701,7 @@ class UIForm(object):
                     logging.error("取消占用channel {} err: {}".format(channel_id, ret))
                     self.show_error_message("通道{}释放失败".format(channel_id))
 
+    # 单对单通话点击事件
     def user_click_handle(self):
         user_btn = self.sender()
         checked = user_btn.isChecked()
@@ -691,6 +742,7 @@ class UIForm(object):
                 self.btn_group.button(index).setStyleSheet(
                     "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
 
+    # 原版的闪烁动画线程，通过thread启动该函数
     def somebody_speaking(self):
         while True:
             if len(self.client.speaking_channels) > 0:
@@ -708,6 +760,41 @@ class UIForm(object):
                 #self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(0)
                 logging.info("state:{}".format(self.user_animation[user_id].state()))
             time.sleep(5)
+
+    def lenth_user_channel_change(self):
+        while True:
+            if len(self.client.speaking_users) > 0:
+                global lenth_of_user_speaking
+                lenth_of_user_speaking = len(self.client.speaking_users)
+            if len(self.client.speaking_channels) > 0:
+                global lenth_of_channel_speaking
+                lenth_of_channel_speaking = len(self.client.speaking_channels)
+
+    # channel闪烁动画线程的槽函数，接收到信号启动闪烁动画（在这个函数里start动画不确定能不能成功）
+    def channel_flashing(self, data):
+        # if len(self.client.speaking_channels) > 0:
+        if data == "1":
+            channel_id = self.client.speaking_channels.pop()
+            global lenth_of_channel_speaking
+            lenth_of_channel_speaking = len(self.client.speaking_channels)
+            self.channel_rx_animation[channel_id].start(QAbstractAnimation.KeepWhenStopped)
+            # self.channel_rx_animation[channel_id].setPaused(False)
+        # self.channel_rx_animation[channel_id].setCurrentTime(0)
+
+    # user闪烁动画线程的槽函数，接收到信号启动闪烁动画（在这个函数里start动画不确定能不能成功）
+    def user_flashing(self, data):
+        # if len(self.client.speaking_users) > 0:
+        if data == "1":
+            user_id = self.client.speaking_users.pop()
+            global lenth_of_user_speaking
+            lenth_of_user_speaking = len(self.client.speaking_users)
+            self.user_animation[user_id].start(QAbstractAnimation.KeepWhenStopped)
+            # self.user_animation[user_id].setPaused(False)
+            # self.user_animation[user_id].setCurrentTime(0)
+            self.phone_book_animation[self.users[user_id]["page"] - 1].start(QAbstractAnimation.KeepWhenStopped)
+            # self.phone_book_animation[self.users[user_id]["page"] - 1].setPaused(False)
+            # self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(0)
+            logging.info("state:{}".format(self.user_animation[user_id].state()))
 
     # 麦克风控制
     def micro_phone_control(self):

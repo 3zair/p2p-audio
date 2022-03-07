@@ -13,10 +13,20 @@ import conf.conf as conf
 from .my_udp import UdpMsg
 from common.mgo import col_user, col_channel
 
-from .volume_control_utils import MyAudioUtilities
-from comtypes import CLSCTX_ALL
-from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
-from ctypes import POINTER, cast
+# TODO:without
+# from .volume_control_utils import MyAudioUtilities
+# from comtypes import CLSCTX_ALL
+# from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
+# from ctypes import POINTER, cast
+
+# 闪烁按钮获取消息
+# global lenth_of_channel_speaking = 0
+# global lenth_of_user_speaking = 0
+# def get_lenth_of_user_speaking():
+#     global lenth_of_user_speaking
+#     return len(self.client.)
+
+
 
 # 控制音量
 OutputDevices = {
@@ -72,11 +82,15 @@ def change_output_volume(channel_id, device, usb_volume=-1, pc_volume=-1):
         if pc_volume > -1:
             ChannelsOutputVolumeConf[channel_id][1] = pc_volume
             for device in OutputDevices["pc"]:
-                set_output_volume_value(device, pc_volume)
+                # TODO:without
+                pass
+                # set_output_volume_value(device, pc_volume)
         if usb_volume > -1:
             ChannelsOutputVolumeConf[channel_id][2] = usb_volume
             for device in OutputDevices["usb"]:
-                set_output_volume_value(device, usb_volume)
+                # TODO:without
+                pass
+                # set_output_volume_value(device, usb_volume)
     else:
         logging.warning("invalid channel_id: {}".format(channel_id))
 
@@ -184,7 +198,8 @@ class ChatClient:
         self.devices = init_devices()
         logging.info("devices:{}".format(self.devices))
         # 输出设备初始化（用于调节音量）
-        output_device_init_for_volume_control()
+        # TODO:without
+        # output_device_init_for_volume_control()
 
         self.record_frames_channel = []
         self.record_frames_user = []
@@ -213,10 +228,13 @@ class ChatClient:
                 self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                             output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
 
-        # 用户电话
+        # TODO:without
         self.playing_stream_for_user = self.p.open(format=self.audio_format, channels=self.audio_channels,
-                                                   rate=self.rate, output=True, frames_per_buffer=self.chunk_size,
-                                                   output_device_index=self.devices["phone_output"][0])
+                                                   rate=self.rate, output=True, frames_per_buffer=self.chunk_size)
+        # 用户电话
+        # self.playing_stream_for_user = self.p.open(format=self.audio_format, channels=self.audio_channels,
+        #                                            rate=self.rate, output=True, frames_per_buffer=self.chunk_size,
+        #                                            output_device_index=self.devices["phone_output"][0])
 
         # 接收udp消息
         threading.Thread(target=self.receive_server_data).start()
@@ -224,11 +242,12 @@ class ChatClient:
         threading.Thread(target=self.voice_play_for_channel).start()
         threading.Thread(target=self.voice_play_for_user).start()
 
+        # TODO:without
         # 脚踏板控制器
-        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        self.ser.setPort(conf.get_serial())
-        self.ser.dtr = True
-        self.ser.open()
+        # self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        # self.ser.setPort(conf.get_serial())
+        # self.ser.dtr = True
+        # self.ser.open()
 
     # 监听数据
     def receive_server_data(self):

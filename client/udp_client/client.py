@@ -13,11 +13,10 @@ import conf.conf as conf
 from .my_udp import UdpMsg
 from common.mgo import col_user, col_channel
 
-# TODO:without
-# from .volume_control_utils import MyAudioUtilities
-# from comtypes import CLSCTX_ALL
-# from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
-# from ctypes import POINTER, cast
+from .volume_control_utils import MyAudioUtilities
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
+from ctypes import POINTER, cast
 
 # 闪烁按钮获取消息
 # global lenth_of_channel_speaking = 0
@@ -26,6 +25,28 @@ from common.mgo import col_user, col_channel
 #     global lenth_of_user_speaking
 #     return len(self.client.)
 
+speaking_channels = set()
+speaking_users = set()
+
+
+def get_speaking_channels():
+    global speaking_channels
+    return speaking_channels
+
+
+def get_speaking_users():
+    global speaking_users
+    return speaking_users
+
+
+def pop_speaking_channels():
+    global speaking_channels
+    return speaking_channels.pop()
+
+
+def pop_speaking_users():
+    global speaking_users
+    return speaking_users.pop()
 
 
 # 控制音量
@@ -82,15 +103,11 @@ def change_output_volume(channel_id, device, usb_volume=-1, pc_volume=-1):
         if pc_volume > -1:
             ChannelsOutputVolumeConf[channel_id][1] = pc_volume
             for device in OutputDevices["pc"]:
-                # TODO:without
-                pass
-                # set_output_volume_value(device, pc_volume)
+                set_output_volume_value(device, pc_volume)
         if usb_volume > -1:
             ChannelsOutputVolumeConf[channel_id][2] = usb_volume
             for device in OutputDevices["usb"]:
-                # TODO:without
-                pass
-                # set_output_volume_value(device, usb_volume)
+                set_output_volume_value(device, usb_volume)
     else:
         logging.warning("invalid channel_id: {}".format(channel_id))
 
@@ -142,8 +159,8 @@ class ChatClient:
         self.col_user = col_user
         self.col_channel = col_channel
 
-        self.speaking_channels = set()
-        self.speaking_users = set()
+        # self.speaking_channels = set()
+        # self.speaking_users = set()
         self.user = {
             "id": "",  # id
             "name": "",
@@ -197,9 +214,9 @@ class ChatClient:
         # 输入输出设备信息初始化（用于记录和播放声音）
         self.devices = init_devices()
         logging.info("devices:{}".format(self.devices))
+
         # 输出设备初始化（用于调节音量）
-        # TODO:without
-        # output_device_init_for_volume_control()
+        output_device_init_for_volume_control()
 
         self.record_frames_channel = []
         self.record_frames_user = []
@@ -228,13 +245,10 @@ class ChatClient:
                 self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                             output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
 
-        # TODO:without
-        self.playing_stream_for_user = self.p.open(format=self.audio_format, channels=self.audio_channels,
-                                                   rate=self.rate, output=True, frames_per_buffer=self.chunk_size)
         # 用户电话
-        # self.playing_stream_for_user = self.p.open(format=self.audio_format, channels=self.audio_channels,
-        #                                            rate=self.rate, output=True, frames_per_buffer=self.chunk_size,
-        #                                            output_device_index=self.devices["phone_output"][0])
+        self.playing_stream_for_user = self.p.open(format=self.audio_format, channels=self.audio_channels,
+                                                   rate=self.rate, output=True, frames_per_buffer=self.chunk_size,
+                                                   output_device_index=self.devices["phone_output"][0])
 
         # 接收udp消息
         threading.Thread(target=self.receive_server_data).start()
@@ -242,17 +256,17 @@ class ChatClient:
         threading.Thread(target=self.voice_play_for_channel).start()
         threading.Thread(target=self.voice_play_for_user).start()
 
-        # TODO:without
         # 脚踏板控制器
-        # self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        # self.ser.setPort(conf.get_serial())
-        # self.ser.dtr = True
-        # self.ser.open()
+        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        self.ser.setPort(conf.get_serial())
+        self.ser.dtr = True
+        self.ser.open()
 
     # 监听数据
     def receive_server_data(self):
         channel_buffer, client_buffer = {}, {}
         channel_orders, client_orders = [], []
+        global speaking_users, speaking_channels
         f = wave.open("receive.wav", "wb")
         f.setnchannels(self.audio_channels)
         f.setsampwidth(self.p.get_sample_size(self.audio_format))
@@ -287,7 +301,7 @@ class ChatClient:
                         #     client_orders = []
                         #     client_buffer = {}
                     else:
-                        self.speaking_users.add(msg_body["uid"])
+                        speaking_users.add(msg_body["uid"])
                 # 当前监听的信道，放入播放队列
                 elif msg.msgType == 100:
                     if msg_body["channel_id"] in self.cur_listening_channels:
@@ -312,7 +326,7 @@ class ChatClient:
                         #     channel_orders = []
                         #     channel_buffer = {}
                     else:
-                        self.speaking_channels.add(msg_body["channel_id"])
+                        speaking_channels.add(msg_body["channel_id"])
 
             except Exception as e:
                 logging.error("receive_server_data err {}".format(e))

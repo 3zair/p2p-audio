@@ -3,7 +3,8 @@ import threading
 import time
 import os
 
-from udp_client.client import ChatClient
+from udp_client.client import ChatClient, get_speaking_users, get_speaking_channels, pop_speaking_channels, \
+    pop_speaking_users
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QLabel, QFrame, QToolButton, QButtonGroup, QStackedLayout
 from PyQt5.QtCore import Qt, QPropertyAnimation, QTimer, QDateTime, QSize, QAbstractAnimation, QThread, pyqtSignal
@@ -12,25 +13,24 @@ from .button_utils import QPushButtonWithColor, QToolButtonWithColor
 from .ui_subwindow import UiForm2
 from conf.conf import get_host, get_port
 
-# 用于消息闪烁实时更新的全局变量
-lenth_of_channel_speaking = 0
-lenth_of_user_speaking = 0
+# 取消消息闪烁的队列
+channels_to_stop = []
+users_to_stop = []
 
 
 # 设置按钮变色效果
 def new_animation(parent):
     ani = QPropertyAnimation(parent, b'color')
-    ani.setDuration(1000)
-    ani.setLoopCount(-1)
-    ani.setStartValue(QColor(210, 210, 210))
-    ani.setEndValue(QColor(204, 255, 204))
+    ani.setDuration(700)
+    ani.setLoopCount(3)
+    ani.setStartValue(QColor(204, 255, 204))
+    ani.setEndValue(QColor(210, 210, 210))
     return ani
 
 
 # 消息闪烁的线程类
 class AnimaThread(QThread):
-    user_signal = pyqtSignal(str)
-    channel_signal = pyqtSignal(str)
+    flash_signal = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -38,13 +38,19 @@ class AnimaThread(QThread):
     # 触发函数
     def run(self):
         while 1:
+            time.sleep(2)
             # 需要启动闪烁动画的时候就发送信号出去
-            global lenth_of_channel_speaking
-            if lenth_of_channel_speaking > 0:
-                self.channel_signal.emit("1")
-            global lenth_of_user_speaking
-            if lenth_of_user_speaking > 0:
-                self.user_signal.emit("1")
+            if len(get_speaking_channels()) > 0:
+                self.flash_signal.emit("channel_start")
+                time.sleep(0.1)
+            if len(get_speaking_users()) > 0:
+                self.flash_signal.emit("user_start")
+                time.sleep(0.1)
+            if len(channels_to_stop) > 0:
+                self.flash_signal.emit("channel_stop")
+                time.sleep(0.1)
+            if len(users_to_stop) > 0:
+                self.flash_signal.emit("user_stop")
 
 
 # 动态显示当前时间的线程类
@@ -101,21 +107,9 @@ class UIForm(object):
         self.phone_book_change_init(main_form)
         self.right_frame_init(main_form)
 
-        # self.phone_book_animation[1].start()
-
         QtCore.QMetaObject.connectSlotsByName(main_form)
-        # for ani in self.channel_rx_animation.values():
-        #     ani.start(QAbstractAnimation.KeepWhenStopped)
-        #     #ani.setPaused(True)
-        # for ani in self.user_animation.values():
-        #     ani.start(QAbstractAnimation.KeepWhenStopped)
-        #     #ani.setPaused(True)
-        # for ani in self.phone_book_animation.values():
-        #     ani.start(QAbstractAnimation.KeepWhenStopped)
-        #     #ani.setPaused(True)
 
-        # TODO:without
-        # threading.Thread(target=self.micro_phone_control).start()
+        threading.Thread(target=self.micro_phone_control).start()
 
         # 启动动态时间显示线程
         self.backend = CurrTime()
@@ -125,14 +119,8 @@ class UIForm(object):
         # 重写版动画线程启动
         self.animation_thread = AnimaThread()
         # 链接通道闪烁函数
-        self.animation_thread.channel_signal.connect(self.channel_flashing)
-        # 链接user闪烁函数
-        self.animation_thread.user_signal.connect(self.user_flashing)
+        self.animation_thread.flash_signal.connect(self.btn_flash)
         self.animation_thread.start()
-        # 实时检测是否收到消息的线程（判断当前speaking的user和channel的数量是否发生变化）
-        threading.Thread(target=self.lenth_user_channel_change).start()
-        # 原版动画线程启动
-        # threading.Thread(target=self.somebody_speaking).start()
 
     # 顶部时间显示frame初始化
     def show_time_frame_init(self, main_form):
@@ -631,6 +619,8 @@ class UIForm(object):
                 if self.client.cur_speaking_channel is not None and self.client.cur_speaking_channel == channel_id:
                     ret = self.cancel_occupy_channel(channel_id)
                     if ret is True:
+                        self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setStyleSheet(
+                            "background-color:rgb(210, 210, 210);font-size:15px;")
                         self.channel_push_buttons["channel_frame_{}".format(channel_id)][2].setChecked(False)
                     else:
                         self.client.cur_speaking_channel = channel_id
@@ -640,7 +630,9 @@ class UIForm(object):
         if checked and channel_id not in self.client.cur_listening_channels:
             rx_button.setStyleSheet("background-color:rgb(128, 255, 128);")
             self.client.add_listening_channel(channel_id)
-            self.channel_rx_animation[channel_id].stop()
+            # 按钮闪烁停止
+            global channels_to_stop
+            channels_to_stop.append(channel_id)
 
     # 通道的tx按钮的点击事件
     def channel_tx_click_handle(self):
@@ -713,8 +705,9 @@ class UIForm(object):
             user_btn.setStyleSheet("background-color:rgb(128, 255, 128);font-size:15px;")
             self.client.send_to_user(user_id)
             # 停止闪烁
-            self.user_animation[user_id].stop()
-            self.phone_book_animation[self.users[user_id]["page"] - 1].stop()
+            # 按钮闪烁停止
+            global users_to_stop
+            users_to_stop.append(user_id)
         else:
             user_btn.setStyleSheet("background-color:rgb(210, 210, 210);font-size:15px;")
             self.client.stop_send_to_user()
@@ -742,59 +735,33 @@ class UIForm(object):
                 self.btn_group.button(index).setStyleSheet(
                     "background-color:rgb(210, 210, 210);font-size:14px;border-bottom-right-radius:15px;border-bottom-left-radius:15px;")
 
-    # 原版的闪烁动画线程，通过thread启动该函数
-    def somebody_speaking(self):
-        while True:
-            if len(self.client.speaking_channels) > 0:
-                channel_id = self.client.speaking_channels.pop()
-                self.channel_rx_animation[channel_id].start(QAbstractAnimation.KeepWhenStopped)
-                #self.channel_rx_animation[channel_id].setPaused(False)
-               # self.channel_rx_animation[channel_id].setCurrentTime(0)
-            if len(self.client.speaking_users) > 0:
-                user_id = self.client.speaking_users.pop()
-                self.user_animation[user_id].start(QAbstractAnimation.KeepWhenStopped)
-                #self.user_animation[user_id].setPaused(False)
-                #self.user_animation[user_id].setCurrentTime(0)
-                self.phone_book_animation[self.users[user_id]["page"] - 1].start(QAbstractAnimation.KeepWhenStopped)
-                #self.phone_book_animation[self.users[user_id]["page"] - 1].setPaused(False)
-                #self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(0)
-                logging.info("state:{}".format(self.user_animation[user_id].state()))
-            time.sleep(5)
-
-    def lenth_user_channel_change(self):
-        while True:
-            if len(self.client.speaking_users) > 0:
-                global lenth_of_user_speaking
-                lenth_of_user_speaking = len(self.client.speaking_users)
-            if len(self.client.speaking_channels) > 0:
-                global lenth_of_channel_speaking
-                lenth_of_channel_speaking = len(self.client.speaking_channels)
-
-    # channel闪烁动画线程的槽函数，接收到信号启动闪烁动画（在这个函数里start动画不确定能不能成功）
-    def channel_flashing(self, data):
-        # if len(self.client.speaking_channels) > 0:
-        if data == "1":
-            channel_id = self.client.speaking_channels.pop()
-            global lenth_of_channel_speaking
-            lenth_of_channel_speaking = len(self.client.speaking_channels)
+    # channel闪烁动画线程的槽函数，接收到信号启动闪烁动画
+    def btn_flash(self, data):
+        if data == "channel_start":
+            channel_id = pop_speaking_channels()
+            logging.info("channel_start{}".format(channel_id))
             self.channel_rx_animation[channel_id].start(QAbstractAnimation.KeepWhenStopped)
-            # self.channel_rx_animation[channel_id].setPaused(False)
-        # self.channel_rx_animation[channel_id].setCurrentTime(0)
 
-    # user闪烁动画线程的槽函数，接收到信号启动闪烁动画（在这个函数里start动画不确定能不能成功）
-    def user_flashing(self, data):
-        # if len(self.client.speaking_users) > 0:
-        if data == "1":
-            user_id = self.client.speaking_users.pop()
-            global lenth_of_user_speaking
-            lenth_of_user_speaking = len(self.client.speaking_users)
+        elif data == "user_start":
+            user_id = pop_speaking_users()
+            logging.info("user_start{}".format(user_id))
             self.user_animation[user_id].start(QAbstractAnimation.KeepWhenStopped)
-            # self.user_animation[user_id].setPaused(False)
-            # self.user_animation[user_id].setCurrentTime(0)
             self.phone_book_animation[self.users[user_id]["page"] - 1].start(QAbstractAnimation.KeepWhenStopped)
-            # self.phone_book_animation[self.users[user_id]["page"] - 1].setPaused(False)
-            # self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(0)
-            logging.info("state:{}".format(self.user_animation[user_id].state()))
+        elif data == "channel_stop":
+            global channels_to_stop
+            channel_id = channels_to_stop.pop()
+            logging.info("channel_stop{}".format(channel_id))
+            self.channel_rx_animation[channel_id].stop()
+            self.channel_rx_animation[channel_id].setCurrentTime(700)
+
+        elif data == "user_stop":
+            global users_to_stop
+            user_id = users_to_stop.pop()
+            logging.info("user_stop{}".format(user_id))
+            self.user_animation[user_id].stop()
+            self.user_animation[user_id].setCurrentTime(700)
+            self.phone_book_animation[self.users[user_id]["page"] - 1].stop()
+            self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(700)
 
     # 麦克风控制
     def micro_phone_control(self):

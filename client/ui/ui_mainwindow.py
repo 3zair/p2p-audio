@@ -147,7 +147,7 @@ class UIForm(object):
         c_id = btn.objectName()
         # 实例化子窗口
         self.chile_Win = UiForm2(main_form)
-        # self.chile_Win.setWindowModality(Qt.ApplicationModal)
+        self.chile_Win.setWindowModality(Qt.ApplicationModal)
         # 初始化子窗口参数
         self.chile_Win.initUI(c_id[-1])
         # 子窗口位置
@@ -771,7 +771,6 @@ class UIForm(object):
             # level 1
             if self.client.ser.cd:
                 if len(self.client.devices["inputs"]) < 1:
-                    # self.show_error_message("请插入输入设备1(CD)")
                     logging.info("请插入输入设备1(CD)")
                 elif not self.client.input_device_flags[self.client.devices["inputs"][0]]:
                     self.client.start_record_voice_data_for_channel(self.client.devices["inputs"][0])
@@ -779,23 +778,22 @@ class UIForm(object):
                     and self.client.input_device_flags[self.client.devices["inputs"][0]]:
                 self.client.stop_record_voice_data_for_channel(self.client.devices["inputs"][0])
             # level 2
-            if self.client.ser.dsr:
+            if self.client.ser.cts:
                 if len(self.client.devices["inputs"]) < 2:
-                    # self.show_error_message("请插入输入设备2(DSR)")
                     logging.info("请插入输入设备2(DSR)")
                 elif not self.client.input_device_flags[self.client.devices["inputs"][1]]:
                     self.client.start_record_voice_data_for_channel(self.client.devices["inputs"][1])
-            if not self.client.ser.dsr and len(self.client.devices["inputs"]) >= 2 \
+            if not self.client.ser.cts and len(self.client.devices["inputs"]) >= 2 \
                     and self.client.input_device_flags[self.client.devices["inputs"][1]]:
                 self.client.stop_record_voice_data_for_channel(self.client.devices["inputs"][1])
-            # level 3
-            if self.client.ser.cts:
-                if len(self.client.devices["inputs"]) < 3:
-                    # self.show_error_message("请插入输入设备3(CTS)")
-                    logging.info("请插入输入设备3(CTS)")
-                elif not self.client.input_device_flags[self.client.devices["inputs"][2]]:
-                    self.client.start_record_voice_data_for_channel(self.client.devices["inputs"][2])
-            if not self.client.ser.cts and len(self.client.devices["inputs"]) >= 3 \
-                    and self.client.input_device_flags[self.client.devices["inputs"][2]]:
-                self.client.stop_record_voice_data_for_channel(self.client.devices["inputs"][2])
+            # # level 3
+            # if self.client.ser.dsr:
+            #     if len(self.client.devices["inputs"]) < 3:
+            #         # self.show_error_message("请插入输入设备3(CTS)")
+            #         logging.info("请插入输入设备3(CTS)")
+            #     elif not self.client.input_device_flags[self.client.devices["inputs"][2]]:
+            #         self.client.start_record_voice_data_for_channel(self.client.devices["inputs"][2])
+            # if not self.client.ser.dsr and len(self.client.devices["inputs"]) >= 3 \
+            #         and self.client.input_device_flags[self.client.devices["inputs"][2]]:
+            #     self.client.stop_record_voice_data_for_channel(self.client.devices["inputs"][2])
             time.sleep(0.22)

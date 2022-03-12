@@ -13,10 +13,11 @@ import conf.conf as conf
 from .my_udp import UdpMsg
 from common.mgo import col_user, col_channel
 
-from .volume_control_utils import MyAudioUtilities
-from comtypes import CLSCTX_ALL
-from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
-from ctypes import POINTER, cast
+# TODO:without
+# from .volume_control_utils import MyAudioUtilities
+# from comtypes import CLSCTX_ALL
+# from pycaw.pycaw import IAudioEndpointVolume, AudioDeviceState
+# from ctypes import POINTER, cast
 
 # 闪烁按钮获取消息
 # global lenth_of_channel_speaking = 0
@@ -216,7 +217,8 @@ class ChatClient:
         logging.info("devices:{}".format(self.devices))
 
         # 输出设备初始化（用于调节音量）
-        output_device_init_for_volume_control()
+        # TODO:without
+        # output_device_init_for_volume_control()
 
         self.record_frames_channel = []
         self.record_frames_user = []
@@ -246,9 +248,12 @@ class ChatClient:
                             output=True, frames_per_buffer=self.chunk_size, output_device_index=pc_op_id))
 
         # 用户电话
+        # TODO:without
         self.playing_stream_for_user = self.p.open(format=self.audio_format, channels=self.audio_channels,
-                                                   rate=self.rate, output=True, frames_per_buffer=self.chunk_size,
-                                                   output_device_index=self.devices["phone_output"][0])
+                                                   rate=self.rate, output=True, frames_per_buffer=self.chunk_size)
+        # self.playing_stream_for_user = self.p.open(format=self.audio_format, channels=self.audio_channels,
+        #                                            rate=self.rate, output=True, frames_per_buffer=self.chunk_size,
+        #                                            output_device_index=self.devices["phone_output"][0])
 
         # 接收udp消息
         threading.Thread(target=self.receive_server_data).start()
@@ -257,10 +262,11 @@ class ChatClient:
         threading.Thread(target=self.voice_play_for_user).start()
 
         # 脚踏板控制器
-        self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
-        self.ser.setPort(conf.get_serial())
-        self.ser.dtr = True
-        self.ser.open()
+        # TODO:without
+        # self.ser = serial.Serial(None, 9600, rtscts=True, dsrdtr=True)
+        # self.ser.setPort(conf.get_serial())
+        # self.ser.dtr = True
+        # self.ser.open()
 
     # 监听数据
     def receive_server_data(self):
@@ -486,10 +492,11 @@ class ChatClient:
         self.voice_record_flag_for_user = False
 
     def record_voice_data_for_user(self):
+        # recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+        #                                input=True, frames_per_buffer=self.chunk_size,
+        #                                input_device_index=self.devices["phone_input"][0])
         recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                                       input=True, frames_per_buffer=self.chunk_size,
-                                       input_device_index=self.devices["phone_input"][0])
-
+                                       input=True, frames_per_buffer=self.chunk_size)
         while not self.exit_flag and self.voice_record_flag_for_user:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)

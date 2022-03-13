@@ -527,7 +527,6 @@ class UIForm(object):
 
         self.tabWidget.addTab(self.tab3, "tab 3")
 
-        self.cb_group = QButtonGroup()
         for page in range(3):
             if page == 0:
                 self.rom_frame = QFrame(self.tab1)
@@ -552,7 +551,6 @@ class UIForm(object):
                 user_btn.setStyleSheet("QPushButton{background-color:rgb(210, 210, 210);}")
                 user_btn.setEnabled(False)
                 page_user_btns.append(user_btn)
-
                 i += 1
             self.user_push_buttons.append(page_user_btns)
 
@@ -565,6 +563,9 @@ class UIForm(object):
                         self.user_push_buttons[page_id][k].setText(user["name"])
                         self.user_push_buttons[page_id][k].setObjectName(user["id"])
                         self.user_push_buttons[page_id][k].setEnabled(True)
+                        self.user_push_buttons[page_id][k].setCheckable(True)
+                        self.user_push_buttons[page_id][k].setStyleSheet("QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
+                "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
                         self.user_push_buttons[page_id][k].clicked.connect(self.user_click_handle)
                         self.user_push_buttons[page_id][k].setCheckable(True)
                         self.user_push_buttons[page_id][k].setStyleSheet("QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
@@ -572,7 +573,6 @@ class UIForm(object):
                         # 增加RX按钮闪烁动画，等有消息时会闪烁
                         self.user_animation[user["id"]] = new_animation(self.user_push_buttons[page_id][k])
                         break
-
 
         self.tabWidget.setTabText(0, "电话1")
         self.tabWidget.setTabText(1, "电话2")
@@ -679,13 +679,16 @@ class UIForm(object):
         print(checked)
         if checked:
             if self.client.cur_connect_user is not None and not self.client.cur_connect_user == user_id:
+                last_btn = self.tabWidget.findChild(QPushButtonWithColor, self.client.cur_connect_user)
                 self.client.stop_send_to_user()
+                last_btn.setChecked(False)
             self.client.send_to_user(user_id)
             # 停止闪烁
             # 按钮闪烁停止
             global users_to_stop
             users_to_stop.append(user_id)
         else:
+            # 按键弹起，取消当前通话
             self.client.stop_send_to_user()
 
     # 取消占用通道

@@ -8,4 +8,6 @@ test.py
 *build
 *dist
 *.bat
-*.yaml
+*.yml
+*/records
+/素材

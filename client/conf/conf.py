@@ -4,7 +4,7 @@ import yaml
 
 # conf
 c = {}
-CONF_PATH = os.path.join(os.getcwd(), "conf.yaml")
+CONF_PATH = os.path.join(os.getcwd(), "conf.yml")
 
 
 def get_host():
@@ -54,6 +54,6 @@ def init():
     with open(CONF_PATH, 'r', encoding="utf-8") as conf_f:
         c = yaml.load(conf_f.read(), yaml.FullLoader)
 
-    if os.path.exists(c["storage"]['root']):
+    if not os.path.exists(c["storage"]['root']):
         os.mkdir(c["storage"]['root'])
     return True

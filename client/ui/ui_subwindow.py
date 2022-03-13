@@ -87,14 +87,11 @@ class UiForm2(QDialog):
 
         self.volume_slider = QSlider(Qt.Horizontal, mid_frame)
         self.volume_slider.setGeometry(QtCore.QRect(150, 40, 180, 45))
-        # self.volume_slider.setMaximum(32767)
-        # self.volume_slider.setPageStep(1024)
         self.volume_slider.setMaximum(100)
         self.volume_slider.setPageStep(1)
         self.volume_slider.setRange(0, 100)
         output_device = get_channel_volume_conf()[self.channel_id][0]
         self.volume_slider.setValue(get_channel_volume_conf()[self.channel_id][output_device])
-        # TODO：self.change_volume没办法传channel_id进去，无法修改cus里面存的音量值，所以将channel_id设置成了self属性
         #self.volume_slider.valueChanged.connect(self.change_volume_handle)
         self.volume_slider.sliderReleased.connect(self.change_volume_handle)
 
@@ -118,6 +115,7 @@ class UiForm2(QDialog):
     def change_volume_handle(self):
         if self.change_btn.isChecked():
             # 耳机
+            # TODO:这里可以加个计时器，看看是不是这条命令耗时
             change_output_volume(self.channel_id, device=2, usb_volume=self.volume_slider.value())
         else:
             # 默认扬声器

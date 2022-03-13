@@ -261,6 +261,8 @@ class ChatClient:
         # 存储音频文件的数据
         self.user_voice_data = []
         self.channel_voice_data = {}
+        for channel_id in self.ChannelsInfo.keys():
+            self.channel_voice_data[channel_id] = []
 
     # 监听数据
     def receive_server_data(self):
@@ -382,23 +384,20 @@ class ChatClient:
         else:
             recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
                                            input=True, frames_per_buffer=self.chunk_size, input_device_index=device_id)
-        f = wave.open("send.wav", "wb")
-        f.setnchannels(self.audio_channels)
-        f.setsampwidth(self.p.get_sample_size(self.audio_format))
-        f.setframerate(self.rate)
-        frames = []
+
+        voice_data_list = []
         while not self.exit_flag and self.voice_record_flag_for_channel:
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
-            frames.append(data)
+
             if self.input_device_flags[device_id]:
+                voice_data_list.append(data)
                 self.record_frames_channel.append(data)
                 if len(self.record_frames_channel) > 100:
                     # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
                     self.record_frames_channel = []
             else:
                 logging.info("丢弃")
-        f.writeframes(b''.join(frames))
-        f.close()
+        threading.Thread(target=self.channel_save, args=())
         recording_stream.close()
         logging.info("stop send_voice_data.")
         return
@@ -484,10 +483,11 @@ class ChatClient:
         threading.Thread(target=self.user_save, args=(username,))
 
     def record_voice_data_for_user(self):
+        # recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+        #                                input=True, frames_per_buffer=self.chunk_size,
+        #                                input_device_index=self.devices["phone_input"][0])
         recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                                       input=True, frames_per_buffer=self.chunk_size,
-                                       input_device_index=self.devices["phone_input"][0])
-
+                                       input=True, frames_per_buffer=self.chunk_size)
         while not self.exit_flag and self.voice_record_flag_for_user:
             # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
@@ -526,7 +526,6 @@ class ChatClient:
             if len(self.play_frames_for_user) > 0:
                 pfs = self.play_frames_for_user.pop()
                 for pf in pfs:
-                    voice_data.append(pf)
                     # signal = numpy.fromstring(pf, dtype=numpy.uint8)
                     # signal = numpy.multiply(signal, 2)
                     self.playing_stream_for_user.write(pf)
@@ -552,7 +551,10 @@ class ChatClient:
         self.exit_flag = True
         self.s.close()
 
-    def channel_save(self, channel_id):
+    def channel_save(self, channel_id, start_time, end_time):
+        if len(self.channel_voice_data[channel_id]) == 0:
+            return
+
         self.save_wav("channel_{}_{}".format(channel_id, datetime.now().strftime('%H%M/%S')),
                       self.channel_voice_data[channel_id])
         self.channel_voice_data[channel_id] = []
@@ -564,7 +566,7 @@ class ChatClient:
 
     def save_wav(self, file_name, datas):
         dir = os.path.join(conf.get_storage_dir(), datetime.now().strftime('%Y%m/%d'))
-        if os.path.exists(dir):
+        if not os.path.exists(dir):
             os.makedirs(dir)
         with wave.open(os.path.join(dir, file_name), "wb") as f:
             f.setnchannels(self.audio_channels)

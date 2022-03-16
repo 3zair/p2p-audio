@@ -32,13 +32,14 @@ class ChatServer:
             # 接收来自客户端的数据,使用recv from
             data, addr = s.recvfrom(2048)
             msg = my_udp.UdpMsg(msg=data)
-            logging.info(
-                "receive from {}, type:{} num: {} body:{}".format(addr, msg.msgType, msg.msgNum, msg.getBody()))
-
+            # logging.info(
+            #     "receive from {}, type:{} num: {} body:{} start:{}".format(addr, msg.msgType, msg.msgNum, msg.getBody(),
+            #                                                                self.start_time))
             if msg.msgType in [100]:
+
                 if self.start_time is None:
                     self.start_time = datetime.now()
-                    threading.Thread(target=self.save_channel_file)
+                    threading.Thread(target=self.save_channel_file).start()
                 self.end_time = datetime.now()
                 self.voice_data_list.append(msg.getVoiceData())
                 for uid in self.clients.keys():
@@ -52,15 +53,18 @@ class ChatServer:
                             "send to {}:{},err:{}".format(self.clients[uid]["ip"], self.clients[uid]["port"], e))
 
     def save_channel_file(self):
+        logging.info("start save file.")
         while True:
-            if self.end_time is not None and self.start_time is not None and datetime.now() - self.end_time > 5:
-                voice_file_name = "{}.{}-{}.wav".format(self.channel_id, self.start_time.strftime("%H%M/%S"),
-                                                        self.start_time.strftime("%H%M/%S"))
+            if self.end_time is not None and self.start_time is not None and (datetime.now() - self.end_time).seconds > 5:
+                voice_file_name = "channel_{}-{}-{}.wav".format(self.channel_id, self.start_time.strftime("%H.%M.%S"),
+                                                        self.end_time.strftime("%H.%M.%S"))
                 data = self.voice_data_list
                 self.start_time = None
                 self.end_time = None
                 self.voice_data_list = []
                 self.save_wav(file_name=voice_file_name, datas=data)
+
+                logging.info("save file {}".format(voice_file_name))
                 # TODO 更新数据库
                 return
             else:
@@ -68,11 +72,12 @@ class ChatServer:
 
     def save_wav(self, file_name, datas):
         dir = os.path.join(self.storage_dir, datetime.now().strftime('%Y%m/%d'))
+        p = pyaudio.PyAudio()
         if not os.path.exists(dir):
             os.makedirs(dir)
         with wave.open(os.path.join(dir, file_name), "wb") as f:
             f.setnchannels(1)
-            f.setsampwidth(pyaudio.paInt16)
+            f.setsampwidth(p.get_sample_size(pyaudio.paInt16))
             f.setframerate(4000)
             f.writeframes(b''.join(datas))
             f.close()

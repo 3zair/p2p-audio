@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime
 import socket
 import threading
@@ -6,6 +7,7 @@ import logging
 import json
 import random
 import wave
+from queue import Queue
 
 import pyaudio
 import serial
@@ -90,20 +92,20 @@ def set_output_volume_value(device, value):
 
 def change_output_volume(channel_id, device, usb_volume=-1, pc_volume=-1):
     global ChannelsOutputVolumeConf, CurChannel, CurOutputModel
-    if channel_id in ChannelsOutputVolumeConf:
-        ChannelsOutputVolumeConf[channel_id][0] = device
-        CurOutputModel = device
-        logging.info(ChannelsOutputVolumeConf)
-        if pc_volume > -1:
-            ChannelsOutputVolumeConf[channel_id][1] = pc_volume
-            for device in OutputDevices["pc"]:
-                set_output_volume_value(device, pc_volume)
-        if usb_volume > -1:
-            ChannelsOutputVolumeConf[channel_id][2] = usb_volume
-            for device in OutputDevices["usb"]:
-                set_output_volume_value(device, usb_volume)
-    else:
-        logging.warning("invalid channel_id: {}".format(channel_id))
+    # if channel_id in ChannelsOutputVolumeConf:
+    #     ChannelsOutputVolumeConf[channel_id][0] = device
+    #     CurOutputModel = device
+    #     logging.info(ChannelsOutputVolumeConf)
+    #     if pc_volume > -1:
+    #         ChannelsOutputVolumeConf[channel_id][1] = pc_volume
+    #         for device in OutputDevices["pc"]:
+    #             set_output_volume_value(device, pc_volume)
+    #     if usb_volume > -1:
+    #         ChannelsOutputVolumeConf[channel_id][2] = usb_volume
+    #         for device in OutputDevices["usb"]:
+    #             set_output_volume_value(device, usb_volume)
+    # else:
+    #     logging.warning("invalid channel_id: {}".format(channel_id))
 
 
 def get_channel_volume_conf():
@@ -213,10 +215,10 @@ class ChatClient:
         # 输出设备初始化（用于调节音量）
         output_device_init_for_volume_control()
 
-        self.record_frames_channel = []
-        self.record_frames_user = []
-        self.play_frames_for_channel = []
-        self.play_frames_for_user = []
+        self.record_frames_channel = Queue()
+        self.record_frames_user = Queue()
+        self.play_frames_for_channel = Queue()
+        self.play_frames_for_user = Queue()
         # 记录输入设备状态
         self.input_device_flags = {}
         for input_id in self.devices["inputs"]:
@@ -282,11 +284,7 @@ class ChatClient:
                 if msg.msgType == 101:
                     if msg_body["uid"] == self.cur_connect_user:
                         logging.info("客户端播放，name: {}".format(msg_body["uid"]))
-                        user_play_frame_body.append(msg.getVoiceData())
-                        self.user_voice_data.append(msg.getVoiceData())
-                        if len(user_play_frame_body) == 10:
-                            self.play_frames_for_user.append(user_play_frame_body)
-                            user_play_frame_body = []
+                        self.play_frames_for_user.put(msg.getVoiceData())
                         # client_orders.append(msg.msgNum)
                         # client_buffer[msg.msgNum] = msg.getVoiceData()
                         # if len(client_orders) == 10:
@@ -308,11 +306,11 @@ class ChatClient:
                         #     msg_body["from"], msg_body["channel_id"], msg.msgNum))
                         logging.info(
                             "channel voice data len{} num{}".format(len(msg.voiceData), msg.msgNum))
-                        channel_play_frame_body.append(msg.getVoiceData())
-                        self.channel_voice_data[msg_body["channel_id"]].append(msg.getVoiceData())
-                        if len(channel_play_frame_body) == 10:
-                            self.play_frames_for_channel.append(channel_play_frame_body)
-                            channel_play_frame_body = []
+                        # channel_play_frame_body.append(msg.getVoiceData())
+                        self.play_frames_for_channel.put(msg.voiceData)
+                        # if len(channel_play_frame_body) == 10:
+                        #     self.play_frames_for_channel.append(channel_play_frame_body)
+                        #     channel_play_frame_body = []
                         # channel_orders.append(msg.msgNum)
                         # channel_buffer[msg.msgNum] = msg.getVoiceData()
                         # frames.append(msg.voiceData)
@@ -352,6 +350,7 @@ class ChatClient:
         self.voice_record_flag_for_channel = True
         # 启动所有麦克风设备
         for input_device in self.devices["inputs"]:
+            logging.info("start device:{}".format(input_device))
             threading.Thread(target=self.record_voice_data_for_channel, args=(input_device,)).start()
         return True
 
@@ -378,27 +377,17 @@ class ChatClient:
 
     # 收取声音数据
     def record_voice_data_for_channel(self, device_id):
-        if device_id < 0:
-            recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                                           input=True, frames_per_buffer=self.chunk_size)
-        else:
-            recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                                           input=True, frames_per_buffer=self.chunk_size, input_device_index=device_id)
-
-        voice_data_list = []
+        recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
+                                       input=True, frames_per_buffer=self.chunk_size, input_device_index=device_id)
         while not self.exit_flag and self.voice_record_flag_for_channel:
-            data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
-
             if self.input_device_flags[device_id]:
-                voice_data_list.append(data)
-                self.record_frames_channel.append(data)
-                if len(self.record_frames_channel) > 100:
+                data = recording_stream.read(self.chunk_size)
+                self.record_frames_channel.put(data)
+                if self.record_frames_channel.qsize() > 100:
                     # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
-                    self.record_frames_channel = []
-            else:
-                logging.info("丢弃")
-        threading.Thread(target=self.channel_save, args=())
-        recording_stream.close()
+                    with self.record_frames_channel.mutex:
+                        self.record_frames_channel.queue.clear()
+
         logging.info("stop send_voice_data.")
         return
 
@@ -418,14 +407,13 @@ class ChatClient:
         logging.info("start send voice data to channel {}".format(channel_id))
         num = 0
         while not self.exit_flag and self.voice_send_flag_for_channel:
-            if len(self.record_frames_channel) > 0:
+            if not self.record_frames_channel.empty() > 0:
                 try:
                     body = {"from": self.user["id"], "channel_id": channel_id}
                     msg = UdpMsg(msgType=100, num=num, body=json.dumps(body),
-                                 voiceData=self.record_frames_channel.pop())
+                                 voiceData=self.record_frames_channel.get())
                     self.s.sendto(msg.getMsg(),
                                   (self.ChannelsInfo[channel_id]["ip"], self.ChannelsInfo[channel_id]["port"]))
-                    # logging.info("send len{} num{} data:{}".format(len(msg.voiceData), num, msg.voiceData))
                     num += 1
                     # 最大标号100000
                     if num == 100000:
@@ -437,16 +425,10 @@ class ChatClient:
     # 播放声音
     def voice_play_for_channel(self):
         global CurOutputModel
-        f = wave.open("receive2.wav", "wb")
-        f.setnchannels(self.audio_channels)
-        f.setsampwidth(self.p.get_sample_size(self.audio_format))
-        f.setframerate(self.rate)
-        frames = []
         while not self.exit_flag:
-            if len(self.play_frames_for_channel) > 0:
-                pfs = self.play_frames_for_channel.pop()
-                for pf in pfs:
-                    frames.append(pf)
+            while self.play_frames_for_channel.qsize() > 4:
+                while not self.play_frames_for_channel.empty():
+                    pf = self.play_frames_for_channel.get()
                     if CurOutputModel == 1:
                         # 系统默认的播放器播放
                         for pls in self.playing_streams_for_channel["pc"]:
@@ -455,9 +437,8 @@ class ChatClient:
                         # usb耳机的播放器播放
                         for pls in self.playing_streams_for_channel["usb"]:
                             pls.write(pf)
-                    # time.sleep(0.8 * self.chunk_size / self.rate)
-        f.writeframes(b''.join(frames))
-        f.close()
+                    # time.sleep(0.8 * 2 * self.chunk_size / self.rate)
+
         for pls in self.playing_streams_for_channel["pc"]:
             pls.close()
         for pls in self.playing_streams_for_channel["usb"]:
@@ -480,22 +461,19 @@ class ChatClient:
         self.cur_connect_user = None
         self.voice_send_flag_for_uer = False
         self.voice_record_flag_for_user = False
-        threading.Thread(target=self.user_save, args=(username,))
+        # threading.Thread(target=self.user_save, args=(username,))
 
     def record_voice_data_for_user(self):
-        # recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-        #                                input=True, frames_per_buffer=self.chunk_size,
-        #                                input_device_index=self.devices["phone_input"][0])
         recording_stream = self.p.open(format=self.audio_format, channels=self.audio_channels, rate=self.rate,
-                                       input=True, frames_per_buffer=self.chunk_size)
+                                       input=True, frames_per_buffer=self.chunk_size,
+                                       input_device_index=self.devices["phone_input"][0])
         while not self.exit_flag and self.voice_record_flag_for_user:
-            # 打开一个数据流对象，解码而成的帧将直接通过它播放出来，我们就能听到声音啦
             data = recording_stream.read(self.chunk_size, exception_on_overflow=False)
-
-            self.record_frames_user.append(data)
-            if len(self.record_frames_user) > 100:
+            self.record_frames_user.put(data)
+            if self.record_frames_user.qsize() > 100:
                 # 防止按下按钮开始监听了但是发送端出现问题，不能发送消息，造成内存溢出
-                self.record_frames_user = []
+                with self.record_frames_user.mutex:
+                    self.record_frames_user.queue.clear()
 
         recording_stream.close()
         logging.info("stop send_voice_data.")
@@ -506,11 +484,11 @@ class ChatClient:
         logging.info("start send voice data to user {}.".format(user_id))
         num = 0
         while not self.exit_flag and self.voice_send_flag_for_uer:
-            if len(self.record_frames_user) > 0:
+            if not self.record_frames_user.empty():
                 try:
                     body = {"uid": self.user["id"]}
                     msg = UdpMsg(msgType=101, num=num, body=json.dumps(body),
-                                 voiceData=self.record_frames_user.pop())
+                                 voiceData=self.record_frames_user.get())
                     self.s.sendto(msg.getMsg(), (self.users_info[user_id]["ip"], self.users_info[user_id]["port"]))
                     num += 1
                     # 最大标号100000
@@ -523,13 +501,10 @@ class ChatClient:
 
     def voice_play_for_user(self):
         while not self.exit_flag:
-            if len(self.play_frames_for_user) > 0:
-                pfs = self.play_frames_for_user.pop()
-                for pf in pfs:
-                    # signal = numpy.fromstring(pf, dtype=numpy.uint8)
-                    # signal = numpy.multiply(signal, 2)
+            while self.play_frames_for_user.qsize() > 4:
+                while not self.play_frames_for_user.empty():
+                    pf = self.play_frames_for_user.get()
                     self.playing_stream_for_user.write(pf)
-                    # time.sleep(0.8 * self.chunk_size / self.rate)
         self.playing_stream_for_user.close()
         logging.info("stop voice_play_for_user.")
 
@@ -543,21 +518,13 @@ class ChatClient:
     def del_listening_channel(self, channel_id):
         logging.info("delListening_channel {}".format(channel_id))
         self.cur_listening_channels.remove(channel_id)
-        threading.Thread(target=self.channel_save, args=(channel_id,)).start()
+        # threading.Thread(target=self.channel_save, args=(channel_id,)).start()
 
         return
 
     def exit(self):
         self.exit_flag = True
         self.s.close()
-
-    def channel_save(self, channel_id, start_time, end_time):
-        if len(self.channel_voice_data[channel_id]) == 0:
-            return
-
-        self.save_wav("channel_{}_{}".format(channel_id, datetime.now().strftime('%H%M/%S')),
-                      self.channel_voice_data[channel_id])
-        self.channel_voice_data[channel_id] = []
 
     def user_save(self, username):
         self.save_wav("user_{}_{}".format(username, datetime.now().strftime('%H%M/%S')),

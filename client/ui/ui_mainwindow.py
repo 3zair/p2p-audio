@@ -79,7 +79,7 @@ class UIForm(object):
         self.client = ChatClient(get_host(), get_port())
         self.users = self.client.users_info
         self.channels = self.client.ChannelsInfo
-        self.volume = 50
+        self.volume = 70
         self.chile_Win = None
         # 限制每次只能打开一个子页面
         # self.sub_window_flag = False

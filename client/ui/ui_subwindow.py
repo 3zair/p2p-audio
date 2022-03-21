@@ -5,7 +5,7 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QSlider, QDialog
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-from udp_client.client import change_output_volume, get_channel_volume_conf
+from udp_client.client import change_output_device, change_channel_output_volume, get_channel_volume_conf
 
 
 #
@@ -57,7 +57,7 @@ class UiForm2(QDialog):
         self.change_btn.setCheckable(True)
         self.change_btn.setStyleSheet("background-color:rgb(245, 245, 245)")
         self.change_btn.setObjectName("change_btn")
-        device = get_channel_volume_conf()[self.channel_id][0]
+        device = get_channel_volume_conf(self.channel_id).output_device
         if device == 2:
             self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'headset.svg')))
             self.change_btn.setChecked(True)
@@ -87,12 +87,11 @@ class UiForm2(QDialog):
 
         self.volume_slider = QSlider(Qt.Horizontal, mid_frame)
         self.volume_slider.setGeometry(QtCore.QRect(150, 40, 180, 45))
-        self.volume_slider.setMaximum(100)
+        # self.volume_slider.setMaximum(100)
         self.volume_slider.setPageStep(1)
-        self.volume_slider.setRange(0, 100)
-        output_device = get_channel_volume_conf()[self.channel_id][0]
-        self.volume_slider.setValue(get_channel_volume_conf()[self.channel_id][output_device])
-        #self.volume_slider.valueChanged.connect(self.change_volume_handle)
+        self.volume_slider.setRange(0, 120)
+        self.volume_slider.setStyleSheet("QSlider:handle{width:15px;}")
+        self.volume_slider.setValue(get_channel_volume_conf(self.channel_id).volume)
         self.volume_slider.sliderReleased.connect(self.change_volume_handle)
 
     def exit_btn_init(self):
@@ -115,27 +114,24 @@ class UiForm2(QDialog):
     def change_volume_handle(self):
         if self.change_btn.isChecked():
             # 耳机
-            # TODO:这里可以加个计时器，看看是不是这条命令耗时
-            change_output_volume(self.channel_id, device=2, usb_volume=self.volume_slider.value())
+            change_channel_output_volume(self.channel_id, usb_volume=self.volume_slider.value())
         else:
             # 默认扬声器
-            change_output_volume(self.channel_id, device=1, pc_volume=self.volume_slider.value())
+            change_channel_output_volume(self.channel_id, pc_volume=self.volume_slider.value())
 
     # 子页面的设备切换按钮
     def change_device_handle(self):
         if self.change_btn.isChecked():
             # 此时是耳机播放
             # 通过cus[channel_id][0]参数设置当前通道音频的播放设备，cus[channel_id][0]为1表示是耳机播放，为0表示是扬声器播放
-            change_output_volume(self.channel_id, device=2)
-            self.volume_slider.setValue(get_channel_volume_conf()[self.channel_id][2])
+            change_output_device(self.channel_id, device=2)
+            self.volume_slider.setValue(get_channel_volume_conf(self.channel_id).volume)
             self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'headset.svg')))
-            print("current play device is : usb")
         else:
             # 此时是扬声器播放
-            change_output_volume(self.channel_id, device=1)
-            self.volume_slider.setValue(get_channel_volume_conf()[self.channel_id][1])
+            change_output_device(self.channel_id, device=1)
+            self.volume_slider.setValue(get_channel_volume_conf(self.channel_id).volume)
             self.change_btn.setIcon(QIcon(os.path.join(self.static_dir, 'speaker.png')))
-            print("current play device is : pc")
 
     # 子页面的退出按钮
     def exit_handle(self):

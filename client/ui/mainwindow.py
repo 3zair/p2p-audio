@@ -6,6 +6,6 @@ from PyQt5.QtCore import Qt
 
 
 class MainWindow(QtWidgets.QWidget, UIForm):
-    def __init__(self, parent=None):
+    def __init__(self, client,parent=None):
         super(MainWindow, self).__init__(parent)
-        self.setup_ui(self)
+        self.setup_ui(self,client)

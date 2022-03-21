@@ -3,15 +3,14 @@ import threading
 import time
 import os
 
-from udp_client.client import ChatClient, get_speaking_users, get_speaking_channels, pop_speaking_channels, \
-    pop_speaking_users
+from udp_client.client import get_speaking_users, get_speaking_channels, pop_speaking_channels, \
+    pop_speaking_users, change_user_output_volume
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QMessageBox, QLabel, QFrame, QButtonGroup, QStackedLayout
+from PyQt5.QtWidgets import QMessageBox, QLabel, QFrame, QSlider, QStackedLayout
 from PyQt5.QtCore import Qt, QPropertyAnimation, QDateTime, QSize, QAbstractAnimation, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QIcon
 from .button_utils import QPushButtonWithColor, QToolButtonWithColor
 from .ui_subwindow import UiForm2
-from conf.conf import get_host, get_port
 
 # 取消消息闪烁的队列
 channels_to_stop = []
@@ -22,7 +21,7 @@ users_to_stop = []
 def new_animation(parent):
     ani = QPropertyAnimation(parent, b'color')
     ani.setDuration(700)
-    ani.setLoopCount(3)
+    ani.setLoopCount(5)
     ani.setStartValue(QColor(204, 255, 204))
     ani.setEndValue(QColor(210, 210, 210))
     return ani
@@ -44,7 +43,6 @@ class AnimaThread(QThread):
                 self.flash_signal.emit("channel_start")
                 time.sleep(0.1)
             if len(get_speaking_users()) > 0:
-                print(get_speaking_users())
                 self.flash_signal.emit("user_start")
                 time.sleep(0.1)
             if len(channels_to_stop) > 0:
@@ -76,9 +74,7 @@ class UIForm(object):
         self.user_push_buttons = []
         self.user_animation = {}
         self.phone_book_animation = {}
-        self.client = ChatClient(get_host(), get_port())
-        self.users = self.client.users_info
-        self.channels = self.client.ChannelsInfo
+
         self.volume = 70
         self.chile_Win = None
         # 限制每次只能打开一个子页面
@@ -88,15 +84,16 @@ class UIForm(object):
         self.waring_flags = [False, False, False]
         self.static_dir = os.path.join(os.getcwd(), "statics")
 
-    def setup_ui(self, main_form):
-        print(self.client.user)
+    def setup_ui(self, main_form, client):
+        self.client = client
+        self.users = self.client.users_info
+        self.channels = self.client.ChannelsInfo
         main_form.setObjectName("main_form")
         main_form.resize(1024, 768)
         # main_form.setWindowFlags(Qt.FramelessWindowHint)  # 去掉标题栏的代码，注释掉是因为隐藏后无法拖动
         main_form.setMinimumSize(QtCore.QSize(1024, 768))
         main_form.setMaximumSize(QtCore.QSize(1024, 768))
         main_form.setStyleSheet("background-color:rgb(235, 235, 235);")
-
         main_form.setWindowTitle("Form")
 
         # 各个frame的初始化
@@ -212,8 +209,9 @@ class UIForm(object):
             self.channel_push_buttons[channel_frame_name][1].setGeometry(QtCore.QRect(70, 0, 70, 60))
             self.channel_push_buttons[channel_frame_name][1].setMinimumSize(QtCore.QSize(70, 60))
             self.channel_push_buttons[channel_frame_name][1].setMaximumSize(QtCore.QSize(70, 60))
-            self.channel_push_buttons[channel_frame_name][1].setStyleSheet("QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
-                                 "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
+            self.channel_push_buttons[channel_frame_name][1].setStyleSheet(
+                "QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
+                "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
             self.channel_push_buttons[channel_frame_name][1].setObjectName(channel_id)
             if self.channels[channel_id]["status"] == 1:
                 self.channel_push_buttons[channel_frame_name][1].setText("RX")
@@ -500,14 +498,23 @@ class UIForm(object):
     def user_table_frame_init(self, main_form):
         self.user_table_frame = QFrame(main_form)
         self.user_table_frame.setObjectName("user_table_frame")
-        self.user_table_frame.setGeometry(QtCore.QRect(617, 145, 290, 490))
+        self.user_table_frame.setGeometry(QtCore.QRect(617, 145, 290, 500))
         self.user_table_frame.setFrameShape(QFrame.Panel)
         self.user_table_frame.setFrameShadow(QFrame.Raised)
 
+        self.volume_slider = QSlider(Qt.Horizontal, self.user_table_frame)
+        self.volume_slider.setGeometry(QtCore.QRect(10, 10, 280, 45))
+        # self.volume_slider.setMaximum(100)
+        self.volume_slider.setPageStep(10)
+        self.volume_slider.setRange(0, 120)
+        self.volume_slider.setStyleSheet("QSlider:handle{width:15px;}")
+        self.volume_slider.setValue(50)
+        self.volume_slider.sliderReleased.connect(self.user_change_volume_handle)
+
         self.tabWidget = QtWidgets.QTabWidget(self.user_table_frame)
         self.tabWidget.setTabPosition(QtWidgets.QTabWidget.South)
-        self.tabWidget.setGeometry(QtCore.QRect(0, 0, 290, 490))
-        self.tabWidget.setStyleSheet("QTabBar::tab{font:18px;width:85px;height:63px; background-color:rgb(210, 210, 210);margin-left:10px;border-bottom-left-radius:15px;border-bottom-right-radius:15px}\
+        self.tabWidget.setGeometry(QtCore.QRect(0, 55, 290, 445))
+        self.tabWidget.setStyleSheet("QTabBar::tab{font:18px;width:85px;height:60px; background-color:rgb(210, 210, 210);margin-left:10px;border-bottom-left-radius:15px;border-bottom-right-radius:15px}\
                         QTabBar::tab:selected{background-color:rgb(226, 226, 226);color:rgb(0, 153, 255)}")
         self.tabWidget.setObjectName("tabWidget")
         # self.tabWidget.currentChanged.connect(self.tabchange)
@@ -526,7 +533,7 @@ class UIForm(object):
         self.tab3.setObjectName("tab3")
 
         self.tabWidget.addTab(self.tab3, "tab 3")
-
+        self.active_user_buttons = {}
         for page in range(3):
             if page == 0:
                 self.rom_frame = QFrame(self.tab1)
@@ -534,7 +541,7 @@ class UIForm(object):
                 self.rom_frame = QFrame(self.tab2)
             else:
                 self.rom_frame = QFrame(self.tab3)
-            self.rom_frame.setGeometry(0, 0, 290, 422)
+            self.rom_frame.setGeometry(0, 0, 290, 390)
             self.rom_frame.setFrameShape(QFrame.Panel)
             self.rom_frame.setFrameShadow(QFrame.Raised)
 
@@ -543,11 +550,11 @@ class UIForm(object):
             i = 0
             for user_num in range(1, 13):
                 x = 6 + (i % 3) * 96
-                y = 11 + int(i / 3) * 104
+                y = 1 + int(i / 3) * 96
                 user_btn = QPushButtonWithColor(self.rom_frame)
-                user_btn.setGeometry(QtCore.QRect(x, y, 86, 92))
-                user_btn.setMinimumSize(QtCore.QSize(86, 92))
-                user_btn.setMaximumSize(QtCore.QSize(86, 92))
+                user_btn.setGeometry(QtCore.QRect(x, y, 86, 86))
+                user_btn.setMinimumSize(QtCore.QSize(86, 86))
+                user_btn.setMaximumSize(QtCore.QSize(86, 86))
                 user_btn.setStyleSheet("QPushButton{background-color:rgb(210, 210, 210);}")
                 user_btn.setEnabled(False)
                 page_user_btns.append(user_btn)
@@ -564,14 +571,13 @@ class UIForm(object):
                         self.user_push_buttons[page_id][k].setObjectName(user["id"])
                         self.user_push_buttons[page_id][k].setEnabled(True)
                         self.user_push_buttons[page_id][k].setCheckable(True)
-                        self.user_push_buttons[page_id][k].setStyleSheet("QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
-                "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
+                        self.user_push_buttons[page_id][k].setStyleSheet(
+                            "QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
+                            "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
                         self.user_push_buttons[page_id][k].clicked.connect(self.user_click_handle)
-                        self.user_push_buttons[page_id][k].setCheckable(True)
-                        self.user_push_buttons[page_id][k].setStyleSheet("QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
-                        "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
-                        # 增加RX按钮闪烁动画，等有消息时会闪烁
+                        # 增加user按钮闪烁动画，等有消息时会闪烁
                         self.user_animation[user["id"]] = new_animation(self.user_push_buttons[page_id][k])
+                        self.active_user_buttons[user["id"]] = self.user_push_buttons[page_id][k]
                         break
 
         self.tabWidget.setTabText(0, "电话1")
@@ -682,14 +688,20 @@ class UIForm(object):
                 last_btn = self.tabWidget.findChild(QPushButtonWithColor, self.client.cur_connect_user)
                 self.client.stop_send_to_user()
                 last_btn.setChecked(False)
-            self.client.send_to_user(user_id)
-            # 停止闪烁
-            # 按钮闪烁停止
-            global users_to_stop
-            users_to_stop.append(user_id)
+            if self.user_animation[user_id].state() == 2:
+                self.client.start_send_to_user(user_id, True)
+                global users_to_stop
+                # 按钮闪烁停止
+                users_to_stop.append(user_id)
+            else:
+                self.client.start_send_to_user(user_id)
         else:
             # 按键弹起，取消当前通话
             self.client.stop_send_to_user()
+
+    # 单点通话音量控制
+    def user_change_volume_handle(self):
+        change_user_output_volume(self.volume_slider.value())
 
     # 取消占用通道
     def cancel_occupy_channel(self, channel_id, retry=3):
@@ -706,29 +718,41 @@ class UIForm(object):
     def btn_flash(self, data):
         if data == "channel_start":
             channel_id = pop_speaking_channels()
-            logging.info("channel_start{}".format(channel_id))
-            self.channel_rx_animation[channel_id].start(QAbstractAnimation.KeepWhenStopped)
+            if channel_id:
+                logging.info("new voice channel {}".format(channel_id))
+                self.channel_rx_animation[channel_id].start(QAbstractAnimation.KeepWhenStopped)
 
         elif data == "user_start":
+            logging.info("new voice from user {}".format(1))
             user_id = pop_speaking_users()
-            logging.info("user_start{}".format(user_id))
-            self.user_animation[user_id].start(QAbstractAnimation.KeepWhenStopped)
-            self.phone_book_animation[self.users[user_id]["page"] - 1].start(QAbstractAnimation.KeepWhenStopped)
+            if user_id:
+                logging.info("new voice from user {}".format(user_id))
+                self.user_animation[user_id].start(QAbstractAnimation.KeepWhenStopped)
+
+            # self.phone_book_animation[self.users[user_id]["page"] - 1].start(QAbstractAnimation.KeepWhenStopped)
         elif data == "channel_stop":
             global channels_to_stop
-            channel_id = channels_to_stop.pop()
-            logging.info("channel_stop{}".format(channel_id))
-            self.channel_rx_animation[channel_id].stop()
-            self.channel_rx_animation[channel_id].setCurrentTime(700)
+            if len(channels_to_stop) > 0:
+                channel_id = channels_to_stop.pop()
+                logging.info("channel_stop{}".format(channel_id))
+                self.channel_rx_animation[channel_id].setCurrentTime(700)
+                self.channel_rx_animation[channel_id].stop()
+                self.channel_push_buttons["channel_frame_{}".format(channel_id)][1].setStyleSheet(
+                    "QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
+                    "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
 
         elif data == "user_stop":
             global users_to_stop
-            user_id = users_to_stop.pop()
-            logging.info("user_stop{}".format(user_id))
-            self.user_animation[user_id].stop()
-            self.user_animation[user_id].setCurrentTime(700)
-            # self.phone_book_animation[self.users[user_id]["page"] - 1].stop()
-            # self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(700)
+            if len(users_to_stop) > 0:
+                user_id = users_to_stop.pop()
+                logging.info("user_stop{}".format(user_id))
+                self.user_animation[user_id].setCurrentTime(700)
+                self.user_animation[user_id].stop()
+                self.active_user_buttons[user_id].setStyleSheet(
+                    "QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
+                    "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
+                # self.phone_book_animation[self.users[user_id]["page"] - 1].stop()
+                # self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(700)
 
     # 麦克风控制
     def micro_phone_control(self):

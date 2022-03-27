@@ -19,14 +19,15 @@ class VoiceSaveInfo:
         self.start_time = None
         self.end_time = None
         self.voice_data_list = []
+        self.users = {}
 
 
 # 保存录音文件
-def save_wav(relative_dir, file_name, datas):
+def save_wav(path, file_name, datas):
     p = pyaudio.PyAudio()
-    if not os.path.exists(relative_dir):
-        os.makedirs(relative_dir)
-    with wave.open(os.path.join(relative_dir, file_name), "wb") as f:
+    if not os.path.exists(path):
+        os.makedirs(path)
+    with wave.open(os.path.join(path, file_name), "wb") as f:
         f.setnchannels(1)
         f.setsampwidth(p.get_sample_size(pyaudio.paInt16))
         f.setframerate(4000)
@@ -44,92 +45,140 @@ class ChatServer:
         self.storage_dir = storage_dir
         self.channel_save = None
         self.phone_call_saves = {}
+        self.mgo_client = None
 
-    def start_channel(self):
+    def start_channel(self, mgo_client):
         logging.info("start channel {}. addr: {}:{}".format(self.channel_id, self.ip, self.port))
-
+        self.mgo_client = mgo_client
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.bind((self.ip, self.port))
         self.channel_save = VoiceSaveInfo()
 
         while True:
-            # 接收来自客户端的数据,使用recv from
             data, addr = s.recvfrom(2048)
-            msg = my_udp.UdpMsg(msg=data)
 
+            msg = my_udp.UdpMsg(msg=data)
+            msg_body = json.loads(msg.getBody())
+
+            # 通道消息
             if msg.msgType in [100]:
+                uid_to = msg_body['from']
+                now = datetime.now()
                 if self.channel_save.start_time is None:
-                    self.channel_save.start_time = datetime.now()
+                    self.channel_save.start_time = now
                     threading.Thread(target=self.save_channel_file).start()
-                self.channel_save.end_time = datetime.now()
+                self.channel_save.end_time = now
+                # if uid_to not in self.channel_save.users:
+                #     self.channel_save.users[uid_to] = {
+                #         "start": now,
+                #         "end": now,
+                #     }
+                # else:
+                #     self.channel_save.users[uid_to]['end'] = now
                 self.channel_save.voice_data_list.append(msg.getVoiceData())
-                for uid in self.clients.keys():
+                for uid_to in self.clients.keys():
                     # broadcast
-                    if self.clients[uid]["ip"] == addr[0] and self.clients[uid]["port"] == addr[1]:
+                    if self.clients[uid_to]["ip"] == addr[0] and self.clients[uid_to]["port"] == addr[1]:
                         continue
                     try:
-                        s.sendto(msg.getMsg(), (self.clients[uid]["ip"], self.clients[uid]["port"]))
+                        s.sendto(msg.getMsg(), (self.clients[uid_to]["ip"], self.clients[uid_to]["port"]))
                     except Exception as e:
                         logging.error(
-                            "send to {}:{},err:{}".format(self.clients[uid]["ip"], self.clients[uid]["port"], e))
+                            "[channel] send to {}:{} err:{}".format(
+                                self.clients[uid_to]["ip"], self.clients[uid_to]["port"], e))
+            # 客户端私聊消息
+            elif msg.msgType == 101:
+                uid_to = msg_body['to']
+                uid_from = msg_body['from']
+                call_id = msg_body['call_id']
+                now = datetime.now()
 
-            else:
-                if msg.msgType == 101:
-                    msg_body = json.loads(msg.getBody())
-                    uid = msg_body['to']
-                    call_id = msg_body['call_id']
-                    if call_id not in self.phone_call_saves.keys():
-                        self.phone_call_saves[call_id] = VoiceSaveInfo()
-                    if self.phone_call_saves[call_id].start_time is None:
-                        self.phone_call_saves[call_id].start_time = datetime.now()
-                        threading.Thread(target=self.save_phone_call_file, args=(call_id,)).start()
-                    self.phone_call_saves[call_id].end_time = datetime.now()
-                    self.phone_call_saves[call_id].voice_data_list.append(msg.getVoiceData())
+                if call_id not in self.phone_call_saves.keys():
+                    self.phone_call_saves[call_id] = VoiceSaveInfo()
+                if self.phone_call_saves[call_id].start_time is None:
+                    self.phone_call_saves[call_id].start_time = now
+                    threading.Thread(target=self.save_phone_call_file, args=(call_id,)).start()
+                self.phone_call_saves[call_id].end_time = now
+                if uid_from not in self.phone_call_saves[call_id].users:
+                    self.phone_call_saves[call_id].users[uid_from] = {
+                        "start": now,
+                        "end": now,
+                    }
+                else:
+                    self.phone_call_saves[call_id].users[uid_from]['end'] = now
 
-                    logging.info("from:{} to:{} call_id:{} channel:{}".format(msg_body['from'], uid, call_id,
-                                                                              msg_body['channel_id']))
-                    try:
-                        s.sendto(msg.getMsg(), (self.clients[uid]["ip"], self.clients[uid]["port"]))
-                    except Exception as e:
-                        logging.error(
-                            "send to {}:{},err:{}".format(self.clients[uid]["ip"], self.clients[uid]["port"], e))
+                self.phone_call_saves[call_id].voice_data_list.append(msg.getVoiceData())
+                try:
+                    s.sendto(msg.getMsg(), (self.clients[uid_to]["ip"], self.clients[uid_to]["port"]))
+                except Exception as e:
+                    logging.error(
+                        "[channel] send to {}:{} err:{}".format(
+                            self.clients[uid_to]["ip"], self.clients[uid_to]["port"], e))
 
     def save_channel_file(self):
-        logging.info("start save file.")
+        logging.info("save_channel_file start save file.")
         while True:
-            if self.channel_save.end_time and self.channel_save.start_time and (
-                    datetime.now() - self.channel_save.end_time).seconds > 5:
-                voice_file_name = "channel_{}-{}-{}.wav".format(self.channel_id,
-                                                                self.channel_save.start_time.strftime("%H.%M.%S"),
-                                                                self.channel_save.end_time.strftime("%H.%M.%S"))
-                data = self.channel_save.voice_data_list
-                self.channel_save.start_time = None
-                self.channel_save.end_time = None
-                self.channel_save.voice_data_list = []
-                relative_dir = os.path.join(self.storage_dir, "channel", datetime.now().strftime('%Y%m/%d'))
-                save_wav(file_name=voice_file_name, relative_dir=relative_dir, datas=data)
+            if self.channel_save.end_time and \
+                    self.channel_save.start_time \
+                    and (datetime.now() - self.channel_save.end_time).seconds > 5:
 
-                logging.info("save file {}".format(voice_file_name))
-                # TODO 更新数据库
+                voice_file_name = "{}-{}-{}.wav".format(self.channel_id,
+                                                        self.channel_save.start_time.strftime("%H.%M.%S"),
+                                                        self.channel_save.end_time.strftime("%H.%M.%S"))
+                relative_dir = os.path.join("channel",
+                                            self.channel_save.start_time.strftime('%Y%m/%d'))
+                data = self.channel_save.voice_data_list
+                record = {
+                    "channel_id": self.channel_id,
+                    "path": os.path.join(relative_dir, voice_file_name),
+                    "st": self.channel_save.start_time,
+                    "ed": self.channel_save.end_time,
+                    "users": self.channel_save.users
+                }
+
+                self.channel_save = VoiceSaveInfo()
+
+                # 存储文件
+                save_wav(file_name=voice_file_name, path=os.path.join(self.storage_dir, relative_dir), datas=data)
+
+                # 插入数据库
+                try:
+                    self.mgo_client.channel_detail.insert(record)
+                except Exception as e:
+                    logging.error("[mongo] update channel_detail: err:{}, data:{}".format(e, record))
+                logging.info("save_channel_file file saved: {}".format(voice_file_name))
                 return
             else:
                 time.sleep(1)
 
     def save_phone_call_file(self, call_id):
-        logging.info("start save file.")
+        logging.info("save_phone_call_file start save file.")
         while True:
-            if self.phone_call_saves[call_id].end_time and self.phone_call_saves[call_id].start_time and (
-                    datetime.now() - self.phone_call_saves[call_id].end_time).seconds > 5:
-                voice_file_name = "phone_{}-{}.wav".format(call_id, self.phone_call_saves[call_id].start_time.strftime(
-                    "%H.%M.%S"))
+            if self.phone_call_saves[call_id].end_time and \
+                    self.phone_call_saves[call_id].start_time and \
+                    (datetime.now() - self.phone_call_saves[call_id].end_time).seconds > 5:
+                voice_file_name = "{}-{}.wav".format(call_id,
+                                                     self.phone_call_saves[call_id].start_time.strftime("%H.%M.%S"))
+                relative_dir = os.path.join("call",
+                                            self.phone_call_saves[call_id].start_time.strftime('%Y%m/%d'))
                 data = self.phone_call_saves[call_id].voice_data_list
+                record = {
+                    "path": os.path.join(relative_dir, voice_file_name),
+                    "st": self.phone_call_saves[call_id].start_time,
+                    "ed": self.phone_call_saves[call_id].end_time,
+                    "users": self.phone_call_saves[call_id].users
+                }
                 del self.phone_call_saves[call_id]
 
-                relative_dir = os.path.join(self.storage_dir, "call", datetime.now().strftime('%Y%m/%d'))
-                save_wav(file_name=voice_file_name, relative_dir=relative_dir, datas=data)
-                logging.info("save file {}".format(voice_file_name))
+                # 存储文件
+                save_wav(file_name=voice_file_name, path=os.path.join(self.storage_dir, relative_dir), datas=data)
+                # 插入数据库
+                try:
+                    self.mgo_client.phone_detail.insert(record)
+                except Exception as e:
+                    logging.error("[mongo] update phone_detail: err:{}, data:{}".format(e, record))
 
-                # TODO 更新数据库
+                logging.info("save_phone_call_file file saved: {}".format(voice_file_name))
                 return
             else:
                 time.sleep(1)

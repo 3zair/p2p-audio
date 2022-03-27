@@ -6,6 +6,8 @@ class Mgo:
         self.col_user = None
         self.client = None
         self.col_channel = None
+        self.channel_detail = None
+        self.phone_detail = None
 
         self.db_url = url
         self.db_name = db_name
@@ -16,6 +18,8 @@ class Mgo:
         db = self.client[self.db_name]
         self.col_channel = db["channel"]
         self.col_user = db['user']
+        self.channel_detail = db['channel_detail']
+        self.phone_detail = db['phone_detail']
 
     def get_channels(self):
         channel_ret = self.col_channel.find()

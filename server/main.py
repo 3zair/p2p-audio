@@ -25,4 +25,4 @@ if __name__ == '__main__':
         if channels[channel_id]["status"] == 1:
             channel_server = server.ChatServer(
                 channel_id, channels[channel_id]["ip"], channels[channel_id]["port"], clients, storage_dir)
-            threading.Thread(target=channel_server.start_channel).start()
+            threading.Thread(target=channel_server.start_channel, args=(mgo,)).start()

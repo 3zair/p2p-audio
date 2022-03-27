@@ -20,6 +20,21 @@ class QPushButtonWithColor(QPushButton):
         self.setStyleSheet('background-color: rgb({}, {}, {})'.format(col.red(), col.green(), col.blue()))
 
 
+class QWidgetWithColor(QWidget):
+    def __init__(self, parent=None):
+        super(QWidgetWithColor, self).__init__(parent)
+        self._color = QColor()
+
+    @pyqtProperty(QColor)
+    def color(self):
+        return self._color
+
+    @color.setter
+    def color(self, col):
+        self._color = col
+        self.setStyleSheet('background-color: rgb({}, {}, {})'.format(col.red(), col.green(), col.blue()))
+
+
 class QToolButtonWithColor(QToolButton):
     def __init__(self, parent=None):
         super(QToolButtonWithColor, self).__init__(parent)

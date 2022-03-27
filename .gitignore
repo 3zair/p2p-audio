@@ -1,9 +1,8 @@
 /.idea
 *__pycache__/
-test.py
+test/test.py
 .DS_Store
 /temp
-*.wav
 *.spec
 *build
 *dist

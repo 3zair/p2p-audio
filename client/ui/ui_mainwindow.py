@@ -3,14 +3,16 @@ import threading
 import time
 import os
 
+
 from udp_client.client import get_speaking_users, get_speaking_channels, pop_speaking_channels, \
     pop_speaking_users, change_user_output_volume
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QMessageBox, QLabel, QFrame, QSlider, QStackedLayout
+from PyQt5.QtWidgets import QMessageBox, QLabel, QFrame
 from PyQt5.QtCore import Qt, QPropertyAnimation, QDateTime, QSize, QAbstractAnimation, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QIcon
-from .button_utils import QPushButtonWithColor, QToolButtonWithColor
+from .button_utils import QPushButtonWithColor,QWidgetWithColor
 from .ui_subwindow import UiForm2
+from .ui_settingWindow import UiForm3
 
 # 取消消息闪烁的队列
 channels_to_stop = []
@@ -241,6 +243,14 @@ class UIForm(object):
 
             print(channel_id, self.channels[channel_id])
 
+    def settingClicked(self, main_form):
+        # 实例化子窗口
+        self.chile_Win = UiForm3(main_form)
+        self.chile_Win.setWindowModality(Qt.ApplicationModal)
+        # 初始化子窗口参数
+        self.chile_Win.initUI()
+        self.chile_Win.show()
+
     # 顶部按钮frame初始化
     def top_frame_init(self, main_form):
         # top frame
@@ -338,9 +348,10 @@ class UIForm(object):
         top_10.setMaximumSize(QtCore.QSize(90, 89))
         top_10.setStyleSheet("background-color:rgb(208, 237, 251);font-size:15px;")
         top_10.setObjectName("top_10")
-        top_10.clicked.connect(self.show_message)
         top_10.setIcon(QIcon(os.path.join(self.static_dir, 'settings.svg')))
         top_10.setIconSize(QSize(60, 60))
+        top_10.clicked.connect(lambda: self.settingClicked(main_form))
+
 
     # 顶部按钮frame初始化
     def right_frame_init(self, main_form):
@@ -498,63 +509,63 @@ class UIForm(object):
     def user_table_frame_init(self, main_form):
         self.user_table_frame = QFrame(main_form)
         self.user_table_frame.setObjectName("user_table_frame")
-        self.user_table_frame.setGeometry(QtCore.QRect(617, 145, 290, 500))
+        self.user_table_frame.setGeometry(QtCore.QRect(617, 159, 290, 478))
         self.user_table_frame.setFrameShape(QFrame.Panel)
         self.user_table_frame.setFrameShadow(QFrame.Raised)
 
-        self.volume_slider = QSlider(Qt.Horizontal, self.user_table_frame)
-        self.volume_slider.setGeometry(QtCore.QRect(10, 10, 280, 45))
-        # self.volume_slider.setMaximum(100)
-        self.volume_slider.setPageStep(10)
-        self.volume_slider.setRange(0, 120)
-        self.volume_slider.setStyleSheet("QSlider:handle{width:15px;}")
-        self.volume_slider.setValue(50)
-        self.volume_slider.sliderReleased.connect(self.user_change_volume_handle)
-
         self.tabWidget = QtWidgets.QTabWidget(self.user_table_frame)
         self.tabWidget.setTabPosition(QtWidgets.QTabWidget.South)
-        self.tabWidget.setGeometry(QtCore.QRect(0, 55, 290, 445))
-        self.tabWidget.setStyleSheet("QTabBar::tab{font:18px;width:85px;height:60px; background-color:rgb(210, 210, 210);margin-left:10px;border-bottom-left-radius:15px;border-bottom-right-radius:15px}\
+        self.tabWidget.setGeometry(QtCore.QRect(0, 0, 290, 472))
+        self.tabWidget.setStyleSheet("QTabBar::tab{font:18px;width:85px;height:70px; background-color:rgb(210, 210, 210);margin-left:10px;border-bottom-left-radius:15px;border-bottom-right-radius:15px}\
                         QTabBar::tab:selected{background-color:rgb(226, 226, 226);color:rgb(0, 153, 255)}")
         self.tabWidget.setObjectName("tabWidget")
-        # self.tabWidget.currentChanged.connect(self.tabchange)
 
-        self.tab1 = QtWidgets.QWidget()
-        self.tab1.setObjectName("tab1")
+        # self.tab1 = QtWidgets.QWidget()
+        # self.tab1.setObjectName("tab1")
+        #
+        # self.tabWidget.addTab(self.tab1, "tab 1")
+        #
+        # self.tab2 = QtWidgets.QWidget()
+        # self.tab2.setObjectName("tab2")
+        #
+        # self.tabWidget.addTab(self.tab2, "tab 2")
+        #
+        # self.tab3 = QtWidgets.QWidget()
+        # self.tab3.setObjectName("tab3")
+        #
+        # self.tabWidget.addTab(self.tab3, "tab 3")
 
-        self.tabWidget.addTab(self.tab1, "tab 1")
-
-        self.tab2 = QtWidgets.QWidget()
-        self.tab2.setObjectName("tab2")
-
-        self.tabWidget.addTab(self.tab2, "tab 2")
-
-        self.tab3 = QtWidgets.QWidget()
-        self.tab3.setObjectName("tab3")
-
-        self.tabWidget.addTab(self.tab3, "tab 3")
+        # init tabItem
         self.active_user_buttons = {}
-        for page in range(3):
-            if page == 0:
-                self.rom_frame = QFrame(self.tab1)
-            elif page == 1:
-                self.rom_frame = QFrame(self.tab2)
-            else:
-                self.rom_frame = QFrame(self.tab3)
-            self.rom_frame.setGeometry(0, 0, 290, 390)
-            self.rom_frame.setFrameShape(QFrame.Panel)
-            self.rom_frame.setFrameShadow(QFrame.Raised)
+        for page_id in range(3):
+            tab = QtWidgets.QTabWidget()
+            tab.setObjectName("tab{}".format(page_id))
+            self.tabWidget.addTab(tab, "tab {}".format(page_id))
+            self.phone_book_animation[page_id] = new_animation(tab)
+            rom_frame = QFrame(tab)
+            # if page == 0:
+            #     self.rom_frame = QFrame(self.tab1)
+            # elif page == 1:
+            #     self.rom_frame = QFrame(self.tab2)
+            # else:
+            #     self.rom_frame = QFrame(self.tab3)
+            # self.rom_frame.setGeometry(0, 0, 290, 416)
+            # self.rom_frame.setFrameShape(QFrame.Panel)
+            # self.rom_frame.setFrameShadow(QFrame.Raised)
+            rom_frame.setGeometry(0, 0, 290, 416)
+            rom_frame.setFrameShape(QFrame.Panel)
+            rom_frame.setFrameShadow(QFrame.Raised)
 
             # 表单布局
             page_user_btns = []
             i = 0
             for user_num in range(1, 13):
                 x = 6 + (i % 3) * 96
-                y = 1 + int(i / 3) * 96
-                user_btn = QPushButtonWithColor(self.rom_frame)
-                user_btn.setGeometry(QtCore.QRect(x, y, 86, 86))
-                user_btn.setMinimumSize(QtCore.QSize(86, 86))
-                user_btn.setMaximumSize(QtCore.QSize(86, 86))
+                y = 1 + int(i / 3) * 99
+                user_btn = QPushButtonWithColor(rom_frame)
+                user_btn.setGeometry(QtCore.QRect(x, y, 86, 89))
+                user_btn.setMinimumSize(QtCore.QSize(86, 89))
+                user_btn.setMaximumSize(QtCore.QSize(86, 89))
                 user_btn.setStyleSheet("QPushButton{background-color:rgb(210, 210, 210);}")
                 user_btn.setEnabled(False)
                 page_user_btns.append(user_btn)
@@ -693,8 +704,11 @@ class UIForm(object):
                 global users_to_stop
                 # 按钮闪烁停止
                 users_to_stop.append(user_id)
+                # 铃声停止
+
             else:
                 self.client.start_send_to_user(user_id)
+            self.client.stop_play_phone_ring()
         else:
             # 按键弹起，取消当前通话
             self.client.stop_send_to_user()
@@ -728,8 +742,7 @@ class UIForm(object):
             if user_id:
                 logging.info("new voice from user {}".format(user_id))
                 self.user_animation[user_id].start(QAbstractAnimation.KeepWhenStopped)
-
-            # self.phone_book_animation[self.users[user_id]["page"] - 1].start(QAbstractAnimation.KeepWhenStopped)
+                self.phone_book_animation[self.users[user_id]["page"] - 1].start(QAbstractAnimation.KeepWhenStopped)
         elif data == "channel_stop":
             global channels_to_stop
             if len(channels_to_stop) > 0:
@@ -751,8 +764,10 @@ class UIForm(object):
                 self.active_user_buttons[user_id].setStyleSheet(
                     "QPushButton{background-color:rgb(210, 210, 210);font-size:15px;}"
                     "QPushButton:checked{background-color:rgb(128, 255, 128);font-size:15px;}")
-                # self.phone_book_animation[self.users[user_id]["page"] - 1].stop()
-                # self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(700)
+                self.phone_book_animation[self.users[user_id]["page"] - 1].stop()
+                self.phone_book_animation[self.users[user_id]["page"] - 1].setCurrentTime(700)
+
+
 
     # 麦克风控制
     def micro_phone_control(self):

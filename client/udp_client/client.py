@@ -1,3 +1,4 @@
+import datetime
 import time
 import socket
 import threading
@@ -278,6 +279,9 @@ class ChatClient:
         # 脚踏板启动
         self.ser.open()
 
+        # 单点通话 铃声
+        self.play_ring_flag = False
+
     def start(self):
         # 扬声器播放
         for pc_op_id in self.devices["pc_outputs"]:
@@ -325,6 +329,8 @@ class ChatClient:
                         speaking_users.add(msg_body["from"])
                         self.user_receive_channel = msg_body["channel_id"]
                         self.user_receive_call_id = msg_body["call_id"]
+                        # 铃声开始
+                        self.start_play_phone_ring()
                 # 通道消息
                 elif msg.msgType == 100:
                     if msg_body["channel_id"] in self.cur_listening_channels:
@@ -540,6 +546,38 @@ class ChatClient:
         self.cur_listening_channels.remove(channel_id)
 
         return
+
+    def start_play_phone_ring(self):
+        if self.cur_connect_user is not None:
+            return
+        self.phone_ring_last_time = datetime.datetime.now()
+        if not self.play_ring_flag:
+            self.play_ring_flag = True
+            threading.Thread(target=self.play_phone_ring).start()
+
+    def stop_play_phone_ring(self):
+        self.play_ring_flag = False
+
+    def play_phone_ring(self):
+
+        ring_file_info = conf.get_ring_file_info()
+        p = pyaudio.PyAudio()
+        play = p.open(format=ring_file_info.format,
+                      channels=ring_file_info.channels,
+                      rate=ring_file_info.rate,
+                      frames_per_buffer=ring_file_info.chunk_size,
+                      output=True,
+                      output_device_index=self.devices['pc_outputs'][0])
+        index = 0
+        while not self.exit_flag and self.play_ring_flag:
+            play.write(ring_file_info.data[index])
+            index += 1
+            if index == len(ring_file_info.data):
+                index = 0
+            t = datetime.datetime.now() - self.phone_ring_last_time
+            if t.seconds > 0.5:
+                break
+        play.close()
 
     def exit(self):
         self.exit_flag = True
